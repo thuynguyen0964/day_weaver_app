@@ -48,7 +48,7 @@ const editTaskSchema = z.object({
   deadlineDate: z.date().refine(val => val >= new Date(new Date().setHours(0,0,0,0)), {
     message: "Deadline must be today or in the future."
   }),
-  deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."), // Corrected regex for 24h format
+  deadlineTime: z.string().regex(/^([01]\d|2[0-2]):([0-5]\d)$/, "Invalid time format (HH:MM)."), // Corrected regex for 24h format
   priority: z.enum(['High', 'Medium', 'Low']),
   note: z.string().optional(),
 });
@@ -256,16 +256,12 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Set Reminder for: {task.text}</DialogTitle>
-                  <DialogDescription>
-                    Enter your email to get notify about this task
-                  </DialogDescription>
+                  <DialogTitle>Enter your email to get notify about this task</DialogTitle>
+                  {/* DialogDescription removed as per user request, title serves as description */}
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor={`reminder-email-${task.id}`} className="text-right">
-                      Email
-                    </Label>
+                  <div className="grid grid-cols-1 items-center gap-4"> 
+                    {/* Label removed as per user request */}
                     <Input
                       id={`reminder-email-${task.id}`}
                       type="email"
@@ -274,11 +270,11 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
                         setReminderEmail(e.target.value);
                         if (emailError) setEmailError(null);
                       }}
-                      className="col-span-3"
+                      className="col-span-1" // Adjusted to col-span-1 since label is removed
                       placeholder="you@example.com"
                     />
                   </div>
-                  {emailError && <p className="text-destructive text-xs col-span-4 text-right -mt-2">{emailError}</p>}
+                  {emailError && <p className="text-destructive text-xs col-span-1 text-right -mt-2">{emailError}</p>} {/* Adjusted to col-span-1 */}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
@@ -323,7 +319,5 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     </Card>
   );
 };
-
     
-
     
