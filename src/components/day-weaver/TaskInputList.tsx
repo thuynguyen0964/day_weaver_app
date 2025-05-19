@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -10,9 +11,10 @@ interface TaskInputListProps {
   tasks: Task[];
   onDeleteTask: (taskId: string) => void;
   onToggleComplete: (taskId: string) => void;
+  onUpdateTask: (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted'>) => void;
 }
 
-export const TaskInputList: FC<TaskInputListProps> = ({ tasks, onDeleteTask, onToggleComplete }) => {
+export const TaskInputList: FC<TaskInputListProps> = ({ tasks, onDeleteTask, onToggleComplete, onUpdateTask }) => {
   if (tasks.length === 0) {
     return (
       <Card className="text-center py-8 border-dashed">
@@ -36,8 +38,11 @@ export const TaskInputList: FC<TaskInputListProps> = ({ tasks, onDeleteTask, onT
           task={task}
           onDeleteTask={onDeleteTask}
           onToggleComplete={onToggleComplete}
+          onUpdateTask={onUpdateTask}
         />
       ))}
     </div>
   );
 };
+
+    

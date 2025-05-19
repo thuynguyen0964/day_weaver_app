@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,36 +8,29 @@ import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
 import type { Task } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Brain } from 'lucide-react'; // Wand2, Loader2, Separator removed
-import { Card, CardDescription, CardContent } from '@/components/ui/card'; // Separator import removed
+import { Brain } from 'lucide-react'; 
+import { Card, CardDescription, CardContent } from '@/components/ui/card'; 
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  // removed generatedSchedule, aiNotes, isLoading state variables
   const { toast } = useToast();
 
-  // Load tasks from localStorage on initial mount
   useEffect(() => {
     const storedTasks = localStorage.getItem('dayWeaverTasks');
     if (storedTasks) {
       setTasks(JSON.parse(storedTasks));
     }
-    // Removed loading for schedule and AI notes from localStorage
   }, []);
 
-  // Save tasks to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('dayWeaverTasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Removed useEffects for generatedSchedule and aiNotes
-
   const handleAddTask = (newTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
     const newTask: Task = {
       ...newTaskData,
-      id: Date.now().toString(), // Simple ID generation
+      id: Date.now().toString(), 
       isCompleted: false,
-      // trackedTimeSeconds: 0, // Removed
     };
     setTasks((prevTasks) => [...prevTasks, newTask]);
     toast({ title: "Task Added", description: `"${newTask.text}" has been added to your list.` });
@@ -44,7 +38,6 @@ export default function HomePage() {
 
   const handleDeleteTask = (taskId: string) => {
     setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
-    // Removed logic for updating generatedSchedule
     toast({ title: "Task Deleted", description: "The task has been removed." });
   };
 
@@ -56,8 +49,14 @@ export default function HomePage() {
     );
   };
   
-  // Removed handleUpdateTaskInSchedule function
-  // Removed handleGenerateSchedule function
+  const handleUpdateTask = (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId ? { ...task, ...updatedTaskData, id: task.id, isCompleted: task.isCompleted } : task
+      )
+    );
+    toast({ title: "Task Updated", description: `"${updatedTaskData.text}" has been updated.` });
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -77,15 +76,11 @@ export default function HomePage() {
                 tasks={tasks}
                 onDeleteTask={handleDeleteTask}
                 onToggleComplete={handleToggleCompleteTaskInput}
+                onUpdateTask={handleUpdateTask} 
               />
             </div>
           </div>
         </section>
-
-        {/* Removed Separator */}
-        {/* Removed "Generate My Schedule" Button */}
-        {/* Removed generated schedule section and loading states */}
-        {/* Removed "Your optimized schedule will appear here..." card */}
 
       </main>
       <footer className="text-center p-4 text-sm text-muted-foreground border-t mt-auto">
@@ -94,3 +89,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
