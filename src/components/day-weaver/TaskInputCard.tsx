@@ -27,15 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-  DialogFooter,
-} from '@/components/ui/dialog';
+// Removed unused Dialog imports
 import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Clock, Smile, ThumbsUp, Heart, Laugh, Annoyed, Frown, Angry } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
@@ -65,7 +57,7 @@ const AVAILABLE_REACTIONS = [
   { id: '👍', icon: ThumbsUp },
   { id: '❤️', icon: Heart },
   { id: '😂', icon: Laugh },
-  { id: '😮', icon: Annoyed }, // Lucide does not have a direct "surprised" or "wow" face, Annoyed might be a placeholder. Consider using an inline SVG or a different icon library for more specific emojis.
+  { id: '😮', icon: Annoyed },
   { id: '😢', icon: Frown },
   { id: '😠', icon: Angry },
 ];
@@ -129,7 +121,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
     newReactions[emojiId] = (newReactions[emojiId] || 0) + 1;
     onUpdateTask(task.id, { reactions: newReactions });
     setIsReactionPopoverOpen(false); // Close popover after reaction
-    toast({ // Show specific toast for reaction
+    toast({
       title: "Reaction Added!",
       description: `You reacted with ${emojiId} to "${task.text}".`,
     });
@@ -138,17 +130,11 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
   let isTaskActuallyExpired = false;
   if (!task.isCompleted) {
     try {
-      // Ensure task.deadline is a string before parsing
       if (typeof task.deadline === 'string') {
         const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
         if (isValid(deadlineDate) && deadlineDate < new Date()) {
           isTaskActuallyExpired = true;
         }
-      } else {
-        // Handle cases where task.deadline might not be a string (e.g., Firestore Timestamp directly)
-        // This part might need adjustment based on how data is consistently passed.
-        // For now, assume if it's not a string, it's not yet processable here for expiration.
-        // console.warn(`Task deadline for "${task.text}" is not a string: `, task.deadline);
       }
     } catch (e) {
       // console.warn(`Invalid date format for task "${task.text}" in TaskInputCard: ${task.deadline}`);
@@ -156,6 +142,8 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
   }
 
   const showEditIcon = !task.isCompleted && !isTaskActuallyExpired;
+  const showReactionIcon = !task.isCompleted && !isTaskActuallyExpired;
+
 
   const renderTaskCreationTime = () => {
     if (!task.createdAt) return null;
@@ -171,7 +159,6 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
         </div>
       );
     } catch (e) {
-      // console.warn(`Invalid createdAt date format for task "${task.text}": ${task.createdAt}`);
       return null;
     }
   };
@@ -287,7 +274,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
             <CardTitle id={`task-title-${task.id}`} className={cn("text-lg truncate", task.isCompleted && "line-through")}>{task.text}</CardTitle>
           </div>
           <div className="flex-shrink-0 space-x-1 flex items-center">
-            {!task.isCompleted && !isTaskActuallyExpired && (
+            {showReactionIcon && (
               <Popover open={isReactionPopoverOpen} onOpenChange={setIsReactionPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="React to task" disabled={task.isCompleted}>
@@ -303,7 +290,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
                         size="icon"
                         onClick={() => handleReaction(reaction.id)}
                         aria-label={`React with ${reaction.id}`}
-                        className="p-1" // Ensure enough clickable area
+                        className="p-1" 
                       >
                         <reaction.icon className="h-5 w-5" />
                       </Button>
@@ -360,3 +347,4 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
   );
 });
 TaskInputCard.displayName = 'TaskInputCard';
+
