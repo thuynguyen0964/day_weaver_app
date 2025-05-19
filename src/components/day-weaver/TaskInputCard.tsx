@@ -32,7 +32,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose,
   DialogFooter,
 } from "@/components/ui/dialog";
@@ -145,7 +144,23 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     }
   };
 
-  if (isEditing) {
+  let isTaskActuallyExpired = false;
+  if (!task.isCompleted) {
+    try {
+      const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
+      if (deadlineDate < new Date()) {
+        isTaskActuallyExpired = true;
+      }
+    } catch (e) {
+      console.warn(`Invalid date format for task "${task.text}" in TaskInputCard: ${task.deadline}`);
+      // If date is invalid, treat as not expired for icon display purposes here
+    }
+  }
+
+  const showBellAndEditIcons = !task.isCompleted && !isTaskActuallyExpired;
+
+
+  if (isEditing) { // Edit mode is only reachable if task is not completed and not expired
     return (
       <Card className="mb-4 shadow-lg border-primary border-2">
         <CardHeader>
@@ -242,7 +257,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
   }
 
   return (
-    <Card className={cn("mb-4 transition-all duration-300 ease-in-out", task.isCompleted ? "bg-muted/50 opacity-70" : "bg-card hover:shadow-md")}>
+    <Card className={cn("mb-4 transition-all duration-300 ease-in-out", task.isCompleted ? "bg-muted/50 opacity-70" : "bg-card hover:shadow-md", isTaskActuallyExpired && !task.isCompleted ? "border-destructive/50 border-2" : "")}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center flex-grow min-w-0">
@@ -256,46 +271,50 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
             <CardTitle id={`task-title-${task.id}`} className={cn("text-lg truncate", task.isCompleted && "line-through")}>{task.text}</CardTitle>
           </div>
           <div className="flex-shrink-0 space-x-1">
-            <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Set reminder" disabled={task.isCompleted}>
-                  <Bell className="h-5 w-5 text-yellow-500" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Enter your email to get notify about this task</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-1 items-center gap-4">
-                    <Input
-                      id={`reminder-email-${task.id}`}
-                      type="email"
-                      value={reminderEmail}
-                      onChange={(e) => {
-                        setReminderEmail(e.target.value);
-                        if (emailError) setEmailError(null);
-                      }}
-                      className="col-span-1"
-                      placeholder="you@example.com"
-                    />
-                  </div>
-                  {emailError && <p className="text-destructive text-xs col-span-1 text-right -mt-2">{emailError}</p>}
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                     <Button type="button" variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button type="button" onClick={handleSendReminder}>
-                    <Send className="mr-2 h-4 w-4" /> Send Reminder
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            {showBellAndEditIcons && (
+              <>
+                <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="Set reminder" disabled={task.isCompleted}>
+                      <Bell className="h-5 w-5 text-yellow-500" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Enter your email to get notify about this task</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-1 items-center gap-4">
+                        <Input
+                          id={`reminder-email-${task.id}`}
+                          type="email"
+                          value={reminderEmail}
+                          onChange={(e) => {
+                            setReminderEmail(e.target.value);
+                            if (emailError) setEmailError(null);
+                          }}
+                          className="col-span-1"
+                          placeholder="you@example.com"
+                        />
+                      </div>
+                      {emailError && <p className="text-destructive text-xs col-span-1 text-right -mt-2">{emailError}</p>}
+                    </div>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                         <Button type="button" variant="outline">Cancel</Button>
+                      </DialogClose>
+                      <Button type="button" onClick={handleSendReminder}>
+                        <Send className="mr-2 h-4 w-4" /> Send Reminder
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
-            <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit task" disabled={task.isCompleted}>
-              <Edit3 className="h-5 w-5 text-blue-600" />
-            </Button>
+                <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit task" disabled={task.isCompleted}>
+                  <Edit3 className="h-5 w-5 text-blue-600" />
+                </Button>
+              </>
+            )}
             <Button variant="ghost" size="icon" onClick={() => onDeleteTask(task.id)} aria-label="Delete task">
               <Trash2 className="h-5 w-5 text-destructive" />
             </Button>
@@ -307,6 +326,9 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
           <div className="flex items-center">
             <CalendarClock className="h-4 w-4 mr-2" />
             <span>Deadline: {task.deadline}</span>
+            {isTaskActuallyExpired && !task.isCompleted && (
+              <Badge variant="destructive" className="ml-2 text-xs">EXPIRED</Badge>
+            )}
           </div>
           {task.note && (
             <div className="flex items-start pt-1">
