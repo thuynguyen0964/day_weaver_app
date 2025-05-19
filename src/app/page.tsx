@@ -8,14 +8,16 @@ import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
 import type { Task } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Brain, Trash2 } from 'lucide-react';
+import { Brain, Trash2, Search } from 'lucide-react'; // Added Search icon
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from '@/components/ui/input'; // Added Input import
 import { parse } from 'date-fns';
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('pending'); // Default to pending
+  const [activeTab, setActiveTab] = useState('pending');
+  const [searchTerm, setSearchTerm] = useState(''); // State for search term
 
   useEffect(() => {
     const storedTasks = localStorage.getItem('dayWeaverTasks');
@@ -72,23 +74,37 @@ export default function HomePage() {
 
   const now = new Date();
 
-  const doneTasks = tasks.filter(task => task.isCompleted);
-  const expiredTasks = tasks.filter(task => {
+  // 1. Filter by search term first
+  const searchedTasks = tasks.filter(task =>
+    task.text.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // 2. Then filter searchedTasks into categories
+  const doneTasks = searchedTasks.filter(task => task.isCompleted);
+  
+  const notDoneTasks = searchedTasks.filter(task => !task.isCompleted);
+
+  const expiredTasks = notDoneTasks.filter(task => {
     try {
       const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
-      return !task.isCompleted && deadlineDate < now;
+      return deadlineDate < now;
     } catch (e) {
-      console.warn(`Invalid date format for task "${task.text}": ${task.deadline}`);
+      console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as not expired for filtering)`);
       return false; 
     }
   });
-  const pendingTasks = tasks.filter(task => {
-     try {
+
+  const pendingTasks = notDoneTasks.filter(task => {
+    const isExpired = expiredTasks.some(et => et.id === task.id);
+    if (isExpired) return false; // If it's expired, it's not pending
+
+    // For remaining not-done, not-expired tasks, check deadline or handle invalid date
+    try {
       const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
-      return !task.isCompleted && deadlineDate >= now;
+      return deadlineDate >= now;
     } catch (e) {
-      console.warn(`Invalid date format for task "${task.text}": ${task.deadline}`);
-      return true; 
+      console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as pending)`);
+      return true; // If date is invalid, treat as pending as per original logic
     }
   });
 
@@ -110,9 +126,21 @@ export default function HomePage() {
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-lg font-semibold text-primary">Your Task List</h3>
                 {tasks.length > 0 && (
-                  <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm">
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete All
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <div className="relative flex items-center">
+                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                       <Input
+                          type="search"
+                          placeholder="Search tasks..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="h-9 pl-10 pr-3 text-sm w-40 md:w-56" // Added width
+                       />
+                    </div>
+                    <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm">
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete All
+                    </Button>
+                  </div>
                 )}
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
