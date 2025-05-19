@@ -8,7 +8,7 @@ import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
 import type { Task } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Brain } from 'lucide-react';
+import { Brain, Trash2 } from 'lucide-react'; // Added Trash2
 import { Card, CardDescription, CardContent } from '@/components/ui/card';
 
 export default function HomePage() {
@@ -58,24 +58,15 @@ export default function HomePage() {
     toast({ title: "Task Updated", description: `"${updatedTaskData.text}" has been updated.` });
   };
 
-  const handleToggleCheckAllTasks = () => {
+  const handleDeleteAllTasks = () => {
     if (tasks.length === 0) return;
-
-    const allCurrentlyChecked = tasks.every(task => task.isCompleted);
-    const newTasks = tasks.map(task => ({
-      ...task,
-      isCompleted: !allCurrentlyChecked,
-    }));
-    setTasks(newTasks);
+    setTasks([]);
     toast({
-      title: allCurrentlyChecked ? "All Tasks Unchecked" : "All Tasks Checked",
-      description: allCurrentlyChecked
-        ? "All tasks have been marked as not completed."
-        : "All tasks have been marked as completed.",
+      title: "All Tasks Deleted",
+      description: "All tasks have been removed from your list.",
+      variant: "destructive",
     });
   };
-
-  const areAllTasksCompleted = tasks.length > 0 && tasks.every(task => task.isCompleted);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -91,19 +82,14 @@ export default function HomePage() {
               <TaskForm onAddTask={handleAddTask} />
             </div>
             <div>
-              {tasks.length > 0 && (
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-lg font-semibold text-primary">Your Task List</h3>
-                  <Button onClick={handleToggleCheckAllTasks} variant="outline" size="sm">
-                    {areAllTasksCompleted ? "Uncheck All" : "Check All"}
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold text-primary">Your Task List</h3>
+                {tasks.length > 0 && (
+                  <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm">
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete All
                   </Button>
-                </div>
-              )}
-              {/* If tasks.length is 0, TaskInputList will show its "No Tasks Yet" message, 
-                  and the header above won't be rendered. */}
-              {tasks.length === 0 && (
-                 <h3 className="text-lg font-semibold mb-3 text-primary">Your Task List</h3>
-              )}
+                )}
+              </div>
               <TaskInputList
                 tasks={tasks}
                 onDeleteTask={handleDeleteTask}
