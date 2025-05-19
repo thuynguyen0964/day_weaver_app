@@ -8,9 +8,10 @@ import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
 import type { Task } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Brain, Trash2, Search } from 'lucide-react';
+import { Brain, Trash2, Search, ListChecks } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { parse } from 'date-fns';
 
 const DEBOUNCE_DELAY = 300; // 300ms delay for search debounce
@@ -30,11 +31,11 @@ export default function HomePage() {
         if (Array.isArray(parsedTasks)) {
           setTasks(parsedTasks);
         } else {
-          setTasks([]); // Reset if stored data is not an array
+          setTasks([]);
         }
       } catch (error) {
         console.error("Failed to parse tasks from localStorage", error);
-        setTasks([]); // Reset on error
+        setTasks([]);
       }
     }
   }, []);
@@ -43,7 +44,6 @@ export default function HomePage() {
     localStorage.setItem('dayWeaverTasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Debounce effect for search term
   useEffect(() => {
     const handler = setTimeout(() => {
       setSearchTerm(inputValue);
@@ -96,50 +96,57 @@ export default function HomePage() {
     });
   }, [tasks.length, toast]);
 
-  const now = useMemo(() => new Date(), []); // Memoize 'now' if it's only needed once per render cycle related to tasks/search
+  const now = useMemo(() => new Date(), []);
 
-  const searchedTasks = useMemo(() => {
-    if (!searchTerm) return tasks;
+  // Filtered list for when search is active
+  const tasksMatchingSearch = useMemo(() => {
+    if (!searchTerm) return []; // Only populate if there's an active search term
     return tasks.filter(task =>
       task.text.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [tasks, searchTerm]);
 
+  // Lists for Tab view (when searchTerm is empty)
   const doneTasks = useMemo(() => {
-    return searchedTasks.filter(task => task.isCompleted);
-  }, [searchedTasks]);
-  
-  const notDoneTasks = useMemo(() => {
-    return searchedTasks.filter(task => !task.isCompleted);
-  }, [searchedTasks]);
+    if (inputValue || searchTerm) return []; // Not used when searching
+    return tasks.filter(task => task.isCompleted);
+  }, [tasks, inputValue, searchTerm]);
 
-  const expiredTasks = useMemo(() => {
-    return notDoneTasks.filter(task => {
+  const notDoneTasksForTabs = useMemo(() => {
+    if (inputValue || searchTerm) return []; // Not used when searching
+    return tasks.filter(task => !task.isCompleted);
+  }, [tasks, inputValue, searchTerm]);
+
+  const expiredTasksForTabs = useMemo(() => {
+    if (inputValue || searchTerm) return []; // Not used when searching
+    return notDoneTasksForTabs.filter(task => {
       try {
         const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
         return deadlineDate < now;
       } catch (e) {
-        console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as not expired for filtering)`);
-        return false; 
+        console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as not expired for tab filtering)`);
+        return false;
       }
     });
-  }, [notDoneTasks, now]);
+  }, [notDoneTasksForTabs, now, inputValue, searchTerm]);
 
-  const pendingTasks = useMemo(() => {
-    return notDoneTasks.filter(task => {
-      const isExpired = expiredTasks.some(et => et.id === task.id);
+  const pendingTasksForTabs = useMemo(() => {
+    if (inputValue || searchTerm) return []; // Not used when searching
+    return notDoneTasksForTabs.filter(task => {
+      const isExpired = expiredTasksForTabs.some(et => et.id === task.id);
       if (isExpired) return false;
-
       try {
         const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
         return deadlineDate >= now;
       } catch (e) {
-        console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as pending)`);
+        console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as pending for tab filtering)`);
         return true;
       }
     });
-  }, [notDoneTasks, expiredTasks, now]);
+  }, [notDoneTasksForTabs, expiredTasksForTabs, now, inputValue, searchTerm]);
 
+
+  const showSearchAndDeleteControls = tasks.length > 0 || inputValue;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -157,57 +164,89 @@ export default function HomePage() {
             <div>
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-lg font-semibold text-primary">Your Task List</h3>
-                {(tasks.length > 0 || inputValue) && ( // Show controls if there are tasks OR if user is typing in search
+                {showSearchAndDeleteControls && (
                   <div className="flex items-center space-x-2">
                     <div className="relative flex items-center">
                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                        <Input
                           type="search"
                           placeholder="Search tasks..."
-                          value={inputValue} // Use inputValue for direct input binding
-                          onChange={(e) => setInputValue(e.target.value)} // Update inputValue
+                          value={inputValue}
+                          onChange={(e) => setInputValue(e.target.value)}
                           className="h-9 pl-10 pr-3 text-sm w-40 md:w-56"
                        />
                     </div>
-                    {tasks.length > 0 && (
+                    {tasks.length > 0 && ( // Delete All only if there are tasks
                         <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete All
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete All
                         </Button>
                     )}
                   </div>
                 )}
               </div>
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-4">
-                  <TabsTrigger value="pending">Pending ({pendingTasks.length})</TabsTrigger>
-                  <TabsTrigger value="done">Done ({doneTasks.length})</TabsTrigger>
-                  <TabsTrigger value="expired">Expired ({expiredTasks.length})</TabsTrigger>
-                </TabsList>
-                <TabsContent value="pending">
+
+              {inputValue || searchTerm ? ( // If searching (either actively typing or debounced term exists)
+                <>
                   <TaskInputList
-                    tasks={pendingTasks}
+                    tasks={tasksMatchingSearch}
                     onDeleteTask={handleDeleteTask}
                     onToggleComplete={handleToggleCompleteTaskInput}
                     onUpdateTask={handleUpdateTask}
+                    isSearchResult={true}
                   />
-                </TabsContent>
-                <TabsContent value="done">
-                  <TaskInputList
-                    tasks={doneTasks}
-                    onDeleteTask={handleDeleteTask}
-                    onToggleComplete={handleToggleCompleteTaskInput}
-                    onUpdateTask={handleUpdateTask}
-                  />
-                </TabsContent>
-                <TabsContent value="expired">
-                  <TaskInputList
-                    tasks={expiredTasks}
-                    onDeleteTask={handleDeleteTask}
-                    onToggleComplete={handleToggleCompleteTaskInput}
-                    onUpdateTask={handleUpdateTask}
-                  />
-                </TabsContent>
-              </Tabs>
+                  {/* Show count only if there were base tasks and a search is active/typed */}
+                  {tasks.length > 0 && (inputValue || searchTerm) && (
+                     <p className="text-sm text-muted-foreground mt-2 text-center">
+                       Found {tasksMatchingSearch.length} matching task{tasksMatchingSearch.length !== 1 ? 's' : ''}.
+                     </p>
+                  )}
+                </>
+              ) : tasks.length > 0 ? ( // If not searching AND there are tasks, show tabs
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 mb-4">
+                    <TabsTrigger value="pending">Pending ({pendingTasksForTabs.length})</TabsTrigger>
+                    <TabsTrigger value="done">Done ({doneTasks.length})</TabsTrigger>
+                    <TabsTrigger value="expired">Expired ({expiredTasksForTabs.length})</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="pending">
+                    <TaskInputList
+                      tasks={pendingTasksForTabs}
+                      onDeleteTask={handleDeleteTask}
+                      onToggleComplete={handleToggleCompleteTaskInput}
+                      onUpdateTask={handleUpdateTask}
+                      isSearchResult={false}
+                    />
+                  </TabsContent>
+                  <TabsContent value="done">
+                    <TaskInputList
+                      tasks={doneTasks}
+                      onDeleteTask={handleDeleteTask}
+                      onToggleComplete={handleToggleCompleteTaskInput}
+                      onUpdateTask={handleUpdateTask}
+                      isSearchResult={false}
+                    />
+                  </TabsContent>
+                  <TabsContent value="expired">
+                    <TaskInputList
+                      tasks={expiredTasksForTabs}
+                      onDeleteTask={handleDeleteTask}
+                      onToggleComplete={handleToggleCompleteTaskInput}
+                      onUpdateTask={handleUpdateTask}
+                      isSearchResult={false}
+                    />
+                  </TabsContent>
+                </Tabs>
+              ) : ( // If not searching AND no tasks, show global "No Tasks Yet"
+                <Card className="text-center py-8 border-dashed">
+                  <CardHeader>
+                    <ListChecks className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                    <CardTitle className="text-xl font-semibold">No Tasks Yet</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>Add tasks using the form to get started.</CardDescription>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </section>
