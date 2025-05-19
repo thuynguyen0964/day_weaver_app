@@ -8,12 +8,13 @@ import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
 import type { Task } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Brain, Trash2 } from 'lucide-react'; // Added Trash2
-import { Card, CardDescription, CardContent } from '@/components/ui/card';
+import { Brain, Trash2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('pending');
 
   useEffect(() => {
     const storedTasks = localStorage.getItem('dayWeaverTasks');
@@ -68,6 +69,9 @@ export default function HomePage() {
     });
   };
 
+  const pendingTasks = tasks.filter(task => !task.isCompleted);
+  const doneTasks = tasks.filter(task => task.isCompleted);
+
   return (
     <div className="min-h-screen flex flex-col">
       <PageHeader />
@@ -90,12 +94,28 @@ export default function HomePage() {
                   </Button>
                 )}
               </div>
-              <TaskInputList
-                tasks={tasks}
-                onDeleteTask={handleDeleteTask}
-                onToggleComplete={handleToggleCompleteTaskInput}
-                onUpdateTask={handleUpdateTask}
-              />
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="pending">Pending ({pendingTasks.length})</TabsTrigger>
+                  <TabsTrigger value="done">Done ({doneTasks.length})</TabsTrigger>
+                </TabsList>
+                <TabsContent value="pending">
+                  <TaskInputList
+                    tasks={pendingTasks}
+                    onDeleteTask={handleDeleteTask}
+                    onToggleComplete={handleToggleCompleteTaskInput}
+                    onUpdateTask={handleUpdateTask}
+                  />
+                </TabsContent>
+                <TabsContent value="done">
+                  <TaskInputList
+                    tasks={doneTasks}
+                    onDeleteTask={handleDeleteTask}
+                    onToggleComplete={handleToggleCompleteTaskInput}
+                    onUpdateTask={handleUpdateTask}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </section>
