@@ -48,7 +48,7 @@ const editTaskSchema = z.object({
   deadlineDate: z.date().refine(val => val >= new Date(new Date().setHours(0,0,0,0)), {
     message: "Deadline must be today or in the future."
   }),
-  deadlineTime: z.string().regex(/^([01]\d|2[0-2]):([0-5]\d)$/, "Invalid time format (HH:MM)."),
+  deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."), // Corrected regex for 24h format
   priority: z.enum(['High', 'Medium', 'Low']),
   note: z.string().optional(),
 });
@@ -258,7 +258,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
                 <DialogHeader>
                   <DialogTitle>Set Reminder for: {task.text}</DialogTitle>
                   <DialogDescription>
-                    Enter your email address to receive a reminder for this task. (This is a simulation)
+                    Enter your email to get notify about this task
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -323,5 +323,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     </Card>
   );
 };
+
+    
 
     
