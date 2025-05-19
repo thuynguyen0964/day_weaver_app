@@ -8,8 +8,8 @@ import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
 import type { Task } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Brain } from 'lucide-react'; 
-import { Card, CardDescription, CardContent } from '@/components/ui/card'; 
+import { Brain } from 'lucide-react';
+import { Card, CardDescription, CardContent } from '@/components/ui/card';
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -29,7 +29,7 @@ export default function HomePage() {
   const handleAddTask = (newTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
     const newTask: Task = {
       ...newTaskData,
-      id: Date.now().toString(), 
+      id: Date.now().toString(),
       isCompleted: false,
     };
     setTasks((prevTasks) => [...prevTasks, newTask]);
@@ -48,7 +48,7 @@ export default function HomePage() {
       )
     );
   };
-  
+
   const handleUpdateTask = (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
     setTasks(prevTasks =>
       prevTasks.map(task =>
@@ -58,11 +58,30 @@ export default function HomePage() {
     toast({ title: "Task Updated", description: `"${updatedTaskData.text}" has been updated.` });
   };
 
+  const handleToggleCheckAllTasks = () => {
+    if (tasks.length === 0) return;
+
+    const allCurrentlyChecked = tasks.every(task => task.isCompleted);
+    const newTasks = tasks.map(task => ({
+      ...task,
+      isCompleted: !allCurrentlyChecked,
+    }));
+    setTasks(newTasks);
+    toast({
+      title: allCurrentlyChecked ? "All Tasks Unchecked" : "All Tasks Checked",
+      description: allCurrentlyChecked
+        ? "All tasks have been marked as not completed."
+        : "All tasks have been marked as completed.",
+    });
+  };
+
+  const areAllTasksCompleted = tasks.length > 0 && tasks.every(task => task.isCompleted);
+
   return (
     <div className="min-h-screen flex flex-col">
       <PageHeader />
       <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
-        
+
         <section id="task-management" aria-labelledby="task-management-heading">
           <h2 id="task-management-heading" className="text-2xl font-semibold mb-4 text-center md:text-left flex items-center justify-center md:justify-start">
             <Brain className="mr-2 h-7 w-7 text-primary"/> Plan Your Day
@@ -72,11 +91,24 @@ export default function HomePage() {
               <TaskForm onAddTask={handleAddTask} />
             </div>
             <div>
+              {tasks.length > 0 && (
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold text-primary">Your Task List</h3>
+                  <Button onClick={handleToggleCheckAllTasks} variant="outline" size="sm">
+                    {areAllTasksCompleted ? "Uncheck All" : "Check All"}
+                  </Button>
+                </div>
+              )}
+              {/* If tasks.length is 0, TaskInputList will show its "No Tasks Yet" message, 
+                  and the header above won't be rendered. */}
+              {tasks.length === 0 && (
+                 <h3 className="text-lg font-semibold mb-3 text-primary">Your Task List</h3>
+              )}
               <TaskInputList
                 tasks={tasks}
                 onDeleteTask={handleDeleteTask}
                 onToggleComplete={handleToggleCompleteTaskInput}
-                onUpdateTask={handleUpdateTask} 
+                onUpdateTask={handleUpdateTask}
               />
             </div>
           </div>
@@ -89,5 +121,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    

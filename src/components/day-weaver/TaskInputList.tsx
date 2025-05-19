@@ -23,7 +23,7 @@ export const TaskInputList: FC<TaskInputListProps> = ({ tasks, onDeleteTask, onT
           <CardTitle className="text-xl font-semibold">No Tasks Yet</CardTitle>
         </CardHeader>
         <CardContent>
-          <CardDescription>Add tasks using the form above to get started.</CardDescription>
+          <CardDescription>Add tasks using the form to get started.</CardDescription>
         </CardContent>
       </Card>
     );
@@ -31,7 +31,7 @@ export const TaskInputList: FC<TaskInputListProps> = ({ tasks, onDeleteTask, onT
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold mb-2 text-primary">Your Task List</h3>
+      {/* The h3 title "Your Task List" has been moved to page.tsx */}
       {tasks.map((task) => (
         <TaskInputCard
           key={task.id}
@@ -44,5 +44,3 @@ export const TaskInputList: FC<TaskInputListProps> = ({ tasks, onDeleteTask, onT
     </div>
   );
 };
-
-    
