@@ -27,10 +27,19 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Clock, Smile, ThumbsUp, Heart, Laugh, Annoyed, Frown, Angry } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 // Schema for editing a task, similar to TaskForm
 const editTaskSchema = z.object({
@@ -56,7 +65,7 @@ const AVAILABLE_REACTIONS = [
   { id: '👍', icon: ThumbsUp },
   { id: '❤️', icon: Heart },
   { id: '😂', icon: Laugh },
-  { id: '😮', icon: Annoyed },
+  { id: '😮', icon: Annoyed }, // Lucide does not have a direct "surprised" or "wow" face, Annoyed might be a placeholder. Consider using an inline SVG or a different icon library for more specific emojis.
   { id: '😢', icon: Frown },
   { id: '😠', icon: Angry },
 ];
@@ -64,7 +73,7 @@ const AVAILABLE_REACTIONS = [
 export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDeleteTask, onToggleComplete, onUpdateTask }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isReactionPopoverOpen, setIsReactionPopoverOpen] = useState(false);
-  const { toast } = useToast();
+  const { toast } = useToast(); // Initialize useToast
 
   const {
     register,
@@ -119,8 +128,8 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
     const newReactions = { ...(task.reactions || {}) };
     newReactions[emojiId] = (newReactions[emojiId] || 0) + 1;
     onUpdateTask(task.id, { reactions: newReactions });
-    setIsReactionPopoverOpen(false);
-    toast({
+    setIsReactionPopoverOpen(false); // Close popover after reaction
+    toast({ // Show specific toast for reaction
       title: "Reaction Added!",
       description: `You reacted with ${emojiId} to "${task.text}".`,
     });
@@ -129,9 +138,17 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
   let isTaskActuallyExpired = false;
   if (!task.isCompleted) {
     try {
-      const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
-      if (deadlineDate < new Date()) {
-        isTaskActuallyExpired = true;
+      // Ensure task.deadline is a string before parsing
+      if (typeof task.deadline === 'string') {
+        const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
+        if (isValid(deadlineDate) && deadlineDate < new Date()) {
+          isTaskActuallyExpired = true;
+        }
+      } else {
+        // Handle cases where task.deadline might not be a string (e.g., Firestore Timestamp directly)
+        // This part might need adjustment based on how data is consistently passed.
+        // For now, assume if it's not a string, it's not yet processable here for expiration.
+        // console.warn(`Task deadline for "${task.text}" is not a string: `, task.deadline);
       }
     } catch (e) {
       // console.warn(`Invalid date format for task "${task.text}" in TaskInputCard: ${task.deadline}`);
@@ -259,7 +276,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
     <Card className={cn("mb-4 transition-all duration-300 ease-in-out", task.isCompleted ? "bg-muted/50 opacity-70" : "bg-card hover:shadow-md", isTaskActuallyExpired && !task.isCompleted ? "border-destructive/50 border-2" : "")}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center flex-grow min-w-0">
+          <div className="flex items-center flex-grow min-w-0"> {/* Added min-w-0 for better truncation */}
             <Checkbox
               id={`complete-${task.id}`}
               checked={task.isCompleted}
@@ -286,7 +303,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
                         size="icon"
                         onClick={() => handleReaction(reaction.id)}
                         aria-label={`React with ${reaction.id}`}
-                        className="p-1"
+                        className="p-1" // Ensure enough clickable area
                       >
                         <reaction.icon className="h-5 w-5" />
                       </Button>

@@ -58,16 +58,21 @@ export default function HomePageClient() {
           deadlineString = format(data.deadline.toDate(), 'yyyy-MM-dd HH:mm');
         } else if (typeof data.deadline === 'string') {
           try {
+            // Attempt to parse if it's a different string format, or keep if already correct
             const parsedDate = parse(data.deadline, 'yyyy-MM-dd HH:mm', new Date());
             if (isValid(parsedDate)) {
               deadlineString = format(parsedDate, 'yyyy-MM-dd HH:mm');
             } else {
-              // If parsing fails, keep the original string, but this case should be rare if data is saved correctly
-              deadlineString = data.deadline; 
+              // If parsing fails, try to see if it's already in the desired format or a general ISO
+              const isoParsed = parseISO(data.deadline);
+              if(isValid(isoParsed)){
+                deadlineString = format(isoParsed, 'yyyy-MM-dd HH:mm');
+              } else {
+                 deadlineString = data.deadline; // Fallback to original string if not parsable
+              }
             }
           } catch (e) {
-            // Fallback if parsing throws an error
-            deadlineString = data.deadline; 
+            deadlineString = data.deadline; // Fallback on error
           }
         } else {
           // Fallback for unexpected type, though ideally deadline should always be a Timestamp or valid string
@@ -219,7 +224,11 @@ export default function HomePageClient() {
           task.id === taskId ? { ...task, ...updatedTaskData, id: task.id, isCompleted: task.isCompleted, createdAt: task.createdAt } : task
         )
       );
-      toast({ title: "Task Updated", description: `"${updatedTaskData.text || tasks.find(t=>t.id === taskId)?.text}" has been updated.` });
+      // Only show "Task Updated" toast if it's not just a reaction update
+      const isReactionOnlyUpdate = Object.keys(updatedTaskData).length === 1 && updatedTaskData.reactions !== undefined;
+      if (!isReactionOnlyUpdate) {
+        toast({ title: "Task Updated", description: `"${updatedTaskData.text || tasks.find(t=>t.id === taskId)?.text}" has been updated.` });
+      }
     } catch (error) {
       console.error("Error updating task: ", error);
       toast({ title: "Error Updating Task", description: "Could not update the task.", variant: "destructive" });
@@ -459,4 +468,3 @@ export default function HomePageClient() {
     </div>
   );
 }
-
