@@ -24,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${roboto_mono.variable}`}> {/* Applied variables to html tag */}
-      <body className={`font-sans antialiased`}> {/* font-sans will now use var(--font-inter) via Tailwind config */}
+    <html lang="en" className={`${inter.variable} ${roboto_mono.variable}`}>
+      <body className={`font-sans antialiased`}>
         {children}
         <Toaster />
       </body>
