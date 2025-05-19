@@ -78,7 +78,6 @@ export default function HomePage() {
       const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
       return !task.isCompleted && deadlineDate < now;
     } catch (e) {
-      // Handle invalid date format if necessary, or assume not expired
       console.warn(`Invalid date format for task "${task.text}": ${task.deadline}`);
       return false; 
     }
@@ -89,7 +88,7 @@ export default function HomePage() {
       return !task.isCompleted && deadlineDate >= now;
     } catch (e) {
       console.warn(`Invalid date format for task "${task.text}": ${task.deadline}`);
-      return true; // Assume pending if date is invalid, or handle differently
+      return true; 
     }
   });
 
@@ -119,8 +118,8 @@ export default function HomePage() {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="pending">Pending ({pendingTasks.length})</TabsTrigger>
-                  <TabsTrigger value="expired">Expired ({expiredTasks.length})</TabsTrigger>
                   <TabsTrigger value="done">Done ({doneTasks.length})</TabsTrigger>
+                  <TabsTrigger value="expired">Expired ({expiredTasks.length})</TabsTrigger>
                 </TabsList>
                 <TabsContent value="pending">
                   <TaskInputList
@@ -130,17 +129,17 @@ export default function HomePage() {
                     onUpdateTask={handleUpdateTask}
                   />
                 </TabsContent>
-                <TabsContent value="expired">
+                <TabsContent value="done">
                   <TaskInputList
-                    tasks={expiredTasks}
+                    tasks={doneTasks}
                     onDeleteTask={handleDeleteTask}
                     onToggleComplete={handleToggleCompleteTaskInput}
                     onUpdateTask={handleUpdateTask}
                   />
                 </TabsContent>
-                <TabsContent value="done">
+                <TabsContent value="expired">
                   <TaskInputList
-                    tasks={doneTasks}
+                    tasks={expiredTasks}
                     onDeleteTask={handleDeleteTask}
                     onToggleComplete={handleToggleCompleteTaskInput}
                     onUpdateTask={handleUpdateTask}
