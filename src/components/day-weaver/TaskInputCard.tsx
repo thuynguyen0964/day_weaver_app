@@ -34,6 +34,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
+  DialogFooter, // Added DialogFooter
 } from "@/components/ui/dialog";
 import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Bell, Send } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
