@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -8,7 +9,7 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea'; // Added Textarea
+// Removed Textarea import
 import {
   Select,
   SelectContent,
@@ -23,7 +24,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, PlusCircle, FileText } from 'lucide-react'; // Added FileText
+import { CalendarIcon, PlusCircle } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
 
 const taskSchema = z.object({
@@ -33,7 +34,7 @@ const taskSchema = z.object({
   }),
   deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."),
   priority: z.enum(['High', 'Medium', 'Low']),
-  note: z.string().optional(), // Changed from durationEstimate to note
+  note: z.string().optional(),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
@@ -55,7 +56,7 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
       priority: 'Medium',
       deadlineDate: new Date(),
       deadlineTime: format(new Date(), "HH:mm"),
-      note: '', // Added note default
+      note: '',
     }
   });
 
@@ -65,14 +66,14 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
       text: data.text,
       deadline,
       priority: data.priority as TaskPriority,
-      note: data.note, // Changed from durationEstimate to note
+      note: data.note,
     });
     reset({ 
         text: '',
         priority: 'Medium',
         deadlineDate: new Date(),
         deadlineTime: format(new Date(), "HH:mm"),
-        note: '' // Reset note
+        note: ''
     });
   };
 
@@ -153,7 +154,7 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
             </div>
             <div>
               <Label htmlFor="note" className="block text-sm font-medium mb-1">Note (Optional)</Label>
-              <Textarea id="note" {...register('note')} placeholder="Add any relevant notes..."/>
+              <Input id="note" {...register('note')} placeholder="Add a short note..."/>
               {errors.note && <p className="text-destructive text-xs mt-1">{errors.note.message}</p>}
             </div>
           </div>

@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea'; // Added Textarea
+// Removed Textarea import
 import {
   Select,
   SelectContent,
@@ -28,7 +28,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText } from 'lucide-react'; // Added FileText, removed Clock3
+import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
 
@@ -38,9 +38,9 @@ const editTaskSchema = z.object({
   deadlineDate: z.date().refine(val => val >= new Date(new Date().setHours(0,0,0,0)), {
     message: "Deadline must be today or in the future."
   }),
-  deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."), // Corrected regex to allow 20-23 hours
+  deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."),
   priority: z.enum(['High', 'Medium', 'Low']),
-  note: z.string().optional(), // Changed from durationEstimate to note
+  note: z.string().optional(),
 });
 
 type EditTaskFormData = z.infer<typeof editTaskSchema>;
@@ -68,7 +68,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
       deadlineTime: task.deadline ? format(parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()), 'HH:mm') : format(new Date(), "HH:mm"),
       priority: task.priority,
-      note: task.note || '', // Changed from durationEstimate to note
+      note: task.note || '',
     },
   });
 
@@ -84,7 +84,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
       deadlineTime: task.deadline ? format(parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()), 'HH:mm') : format(new Date(), "HH:mm"),
       priority: task.priority,
-      note: task.note || '', // Changed from durationEstimate to note
+      note: task.note || '',
     });
     setIsEditing(true);
   };
@@ -99,7 +99,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
       text: data.text,
       deadline,
       priority: data.priority as TaskPriority,
-      note: data.note, // Changed from durationEstimate to note
+      note: data.note,
     });
     setIsEditing(false);
   };
@@ -182,7 +182,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
               </div>
               <div>
                 <Label htmlFor={`edit-note-${task.id}`} className="block text-sm font-medium mb-1">Note (Optional)</Label>
-                <Textarea id={`edit-note-${task.id}`} {...register('note')} placeholder="Add any relevant notes..." />
+                <Input id={`edit-note-${task.id}`} {...register('note')} placeholder="Add a short note..." />
                 {errors.note && <p className="text-destructive text-xs mt-1">{errors.note.message}</p>}
               </div>
             </div>
@@ -230,7 +230,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
             <CalendarClock className="h-4 w-4 mr-2" />
             <span>Deadline: {task.deadline}</span>
           </div>
-          {task.note && ( // Display note if it exists
+          {task.note && (
             <div className="flex items-start pt-1">
               <FileText className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
               <span className="whitespace-pre-wrap break-words">Note: {task.note}</span>
