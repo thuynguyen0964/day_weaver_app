@@ -14,7 +14,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Removed Textarea import
 import {
   Select,
   SelectContent,
@@ -28,9 +27,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Bell, Send } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 // Schema for editing a task, similar to TaskForm
 const editTaskSchema = z.object({
@@ -38,12 +48,14 @@ const editTaskSchema = z.object({
   deadlineDate: z.date().refine(val => val >= new Date(new Date().setHours(0,0,0,0)), {
     message: "Deadline must be today or in the future."
   }),
-  deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."),
+  deadlineTime: z.string().regex(/^([01]\d|2[0-2]):([0-5]\d)$/, "Invalid time format (HH:MM)."),
   priority: z.enum(['High', 'Medium', 'Low']),
   note: z.string().optional(),
 });
 
 type EditTaskFormData = z.infer<typeof editTaskSchema>;
+
+const emailSchema = z.string().email({ message: "Invalid email address." });
 
 interface TaskInputCardProps {
   task: Task;
@@ -54,6 +66,10 @@ interface TaskInputCardProps {
 
 export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onToggleComplete, onUpdateTask }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [reminderEmail, setReminderEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const {
     register,
@@ -102,6 +118,23 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
       note: data.note,
     });
     setIsEditing(false);
+  };
+
+  const handleSendReminder = () => {
+    try {
+      emailSchema.parse(reminderEmail);
+      setEmailError(null);
+      toast({
+        title: "Reminder Set (Simulated)",
+        description: `A reminder for "${task.text}" will be sent to ${reminderEmail}.`,
+      });
+      setReminderEmail('');
+      setIsReminderDialogOpen(false);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        setEmailError(error.errors[0].message);
+      }
+    }
   };
 
   if (isEditing) {
@@ -215,6 +248,49 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
             <CardTitle id={`task-title-${task.id}`} className={cn("text-lg truncate", task.isCompleted && "line-through")}>{task.text}</CardTitle>
           </div>
           <div className="flex-shrink-0 space-x-1">
+            <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Set reminder" disabled={task.isCompleted}>
+                  <Bell className="h-5 w-5 text-yellow-500" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Set Reminder for: {task.text}</DialogTitle>
+                  <DialogDescription>
+                    Enter your email address to receive a reminder for this task. (This is a simulation)
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor={`reminder-email-${task.id}`} className="text-right">
+                      Email
+                    </Label>
+                    <Input
+                      id={`reminder-email-${task.id}`}
+                      type="email"
+                      value={reminderEmail}
+                      onChange={(e) => {
+                        setReminderEmail(e.target.value);
+                        if (emailError) setEmailError(null);
+                      }}
+                      className="col-span-3"
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                  {emailError && <p className="text-destructive text-xs col-span-4 text-right -mt-2">{emailError}</p>}
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                     <Button type="button" variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button type="button" onClick={handleSendReminder}>
+                    <Send className="mr-2 h-4 w-4" /> Send Reminder
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit task" disabled={task.isCompleted}>
               <Edit3 className="h-5 w-5 text-blue-600" />
             </Button>
@@ -247,3 +323,5 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     </Card>
   );
 };
+
+    
