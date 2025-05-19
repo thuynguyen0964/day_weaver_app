@@ -57,7 +57,20 @@ export default function HomePageClient() {
         if (data.deadline instanceof Timestamp) {
           deadlineString = format(data.deadline.toDate(), 'yyyy-MM-dd HH:mm');
         } else if (typeof data.deadline === 'string') {
-          deadlineString = data.deadline;
+          // Attempt to parse and reformat to ensure consistency, 
+          // but fallback to original string if parsing fails.
+          try {
+            const parsedDate = parse(data.deadline, 'yyyy-MM-dd HH:mm', new Date());
+            if (isValid(parsedDate)) {
+              deadlineString = format(parsedDate, 'yyyy-MM-dd HH:mm');
+            } else {
+              // console.warn(`Task ${docSnapshot.id} has an invalid deadline string format. Using original.`);
+              deadlineString = data.deadline; // Fallback to original if parsing an existing string fails
+            }
+          } catch (e) {
+            // console.warn(`Error parsing deadline string for task ${docSnapshot.id}. Using original.`);
+            deadlineString = data.deadline; // Fallback if any error during parsing
+          }
         } else {
           // Fallback for undefined or unexpected deadline types
           // console.warn(`Task ${docSnapshot.id} has an invalid or missing deadline. Defaulting.`);
@@ -68,7 +81,7 @@ export default function HomePageClient() {
         if (data.createdAt instanceof Timestamp) {
           createdAtString = data.createdAt.toDate().toISOString();
         } else if (typeof data.createdAt === 'string') {
-          createdAtString = data.createdAt;
+          createdAtString = data.createdAt; // Assuming it's already an ISO string
         }
 
         return {
@@ -89,7 +102,7 @@ export default function HomePageClient() {
         description: "Could not load tasks from the database.",
         variant: "destructive",
       })
-      setTasks([]);
+      setTasks([]); // Ensure tasks is empty on error
     } finally {
       setIsLoading(false);
     }
@@ -195,7 +208,7 @@ export default function HomePageClient() {
       const taskRef = doc(db, TASKS_COLLECTION, taskId);
       // When updating, we pass the deadline string as is, since Firestore will store it as a string.
       // createdAt is not updated here.
-      await updateDoc(taskRef, updatedTaskData); 
+      await updateDoc(taskRef, updatedTaskData as Partial<Task>); // Cast to Partial<Task> to satisfy updateDoc
       setTasks(prevTasks =>
         prevTasks.map(task =>
           task.id === taskId ? { ...task, ...updatedTaskData, id: task.id, isCompleted: task.isCompleted, createdAt: task.createdAt } : task
@@ -337,14 +350,6 @@ export default function HomePageClient() {
   
   const showSearchAndDeleteControls = tasks.length > 0 || inputValue;
 
-  if (isLoading && tasks.length === 0) {
-    return (
-      <div className="flex justify-center items-center min-h-screen p-4 text-center">
-        Loading tasks from database...
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col">
       <PageHeader />
@@ -375,7 +380,9 @@ export default function HomePageClient() {
                 )}
               </div>
 
-              {inputValue ? ( // If user is typing in search
+              {isLoading && tasks.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">Loading tasks...</p>
+              ) : inputValue ? ( // If user is typing in search
                 <>
                   {isDebouncing ? (
                     <p className="text-center text-muted-foreground py-8">Loading...</p>
@@ -432,5 +439,3 @@ export default function HomePageClient() {
     </div>
   );
 }
-
-    
