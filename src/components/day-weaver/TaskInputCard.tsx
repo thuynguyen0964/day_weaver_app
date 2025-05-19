@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import React, { useState } from 'react'; // Import React for React.memo
+import React, { useState } from 'react';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,16 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Bell, Send, Clock } from 'lucide-react';
+import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Clock, Smile, ThumbsUp, Heart, Laugh, Annoyed, Frown, Angry } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -54,21 +45,25 @@ const editTaskSchema = z.object({
 
 type EditTaskFormData = z.infer<typeof editTaskSchema>;
 
-const emailSchema = z.string().email({ message: "Invalid email address." });
-
 interface TaskInputCardProps {
   task: Task;
   onDeleteTask: (taskId: string) => void;
   onToggleComplete: (taskId: string) => void;
-  onUpdateTask: (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted' | 'createdAt'>) => void;
+  onUpdateTask: (taskId: string, updatedTaskData: Partial<Omit<Task, 'id' | 'isCompleted' | 'createdAt'>>) => void;
 }
 
-// Wrap TaskInputCard with React.memo
+const AVAILABLE_REACTIONS = [
+  { id: '👍', icon: ThumbsUp },
+  { id: '❤️', icon: Heart },
+  { id: '😂', icon: Laugh },
+  { id: '😮', icon: Annoyed },
+  { id: '😢', icon: Frown },
+  { id: '😠', icon: Angry },
+];
+
 export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDeleteTask, onToggleComplete, onUpdateTask }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [reminderEmail, setReminderEmail] = useState('');
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
+  const [isReactionPopoverOpen, setIsReactionPopoverOpen] = useState(false);
   const { toast } = useToast();
 
   const {
@@ -120,32 +115,15 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
     setIsEditing(false);
   };
 
-  const handleSendReminder = () => {
-    try {
-      emailSchema.parse(reminderEmail);
-      setEmailError(null);
-
-      // Simulate email sending
-      console.log(`Reminder for task "${task.text}" (Deadline: ${task.deadline}) would be sent to ${reminderEmail}`);
-      toast({
-        title: "Reminder Set (Simulated)",
-        description: `Reminder for "${task.text}" will be sent to ${reminderEmail}.`,
-      });
-
-      setReminderEmail('');
-      setIsReminderDialogOpen(false);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        setEmailError(error.errors[0].message);
-      } else {
-        console.error("Error processing reminder:", error);
-        toast({
-          title: "Error",
-          description: "Could not process the reminder request.",
-          variant: "destructive",
-        });
-      }
-    }
+  const handleReaction = (emojiId: string) => {
+    const newReactions = { ...(task.reactions || {}) };
+    newReactions[emojiId] = (newReactions[emojiId] || 0) + 1;
+    onUpdateTask(task.id, { reactions: newReactions });
+    setIsReactionPopoverOpen(false);
+    toast({
+      title: "Reaction Added!",
+      description: `You reacted with ${emojiId} to "${task.text}".`,
+    });
   };
 
   let isTaskActuallyExpired = false;
@@ -160,7 +138,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
     }
   }
 
-  const showBellAndEditIcons = !task.isCompleted && !isTaskActuallyExpired;
+  const showEditIcon = !task.isCompleted && !isTaskActuallyExpired;
 
   const renderTaskCreationTime = () => {
     if (!task.createdAt) return null;
@@ -180,7 +158,6 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
       return null;
     }
   };
-
 
   if (isEditing) {
     return (
@@ -292,50 +269,36 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
             />
             <CardTitle id={`task-title-${task.id}`} className={cn("text-lg truncate", task.isCompleted && "line-through")}>{task.text}</CardTitle>
           </div>
-          <div className="flex-shrink-0 space-x-1">
-            {showBellAndEditIcons && (
-              <>
-                <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="Set reminder" disabled={task.isCompleted}>
-                      <Bell className="h-5 w-5 text-yellow-500" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Enter your email to get notify about this task</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-1 items-center gap-4">
-                        <Input
-                          id={`reminder-email-${task.id}`}
-                          type="email"
-                          value={reminderEmail}
-                          onChange={(e) => {
-                            setReminderEmail(e.target.value);
-                            if (emailError) setEmailError(null);
-                          }}
-                          className="col-span-1"
-                          placeholder="you@example.com"
-                        />
-                      </div>
-                      {emailError && <p className="text-destructive text-xs col-span-1 text-right -mt-2">{emailError}</p>}
-                    </div>
-                    <DialogFooter>
-                      <DialogClose asChild>
-                         <Button type="button" variant="outline">Cancel</Button>
-                      </DialogClose>
-                      <Button type="button" onClick={handleSendReminder}>
-                        <Send className="mr-2 h-4 w-4" /> Send Reminder
+          <div className="flex-shrink-0 space-x-1 flex items-center">
+            {!task.isCompleted && !isTaskActuallyExpired && (
+              <Popover open={isReactionPopoverOpen} onOpenChange={setIsReactionPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="React to task" disabled={task.isCompleted}>
+                    <Smile className="h-5 w-5 text-yellow-500" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-2">
+                  <div className="flex space-x-1">
+                    {AVAILABLE_REACTIONS.map(reaction => (
+                      <Button
+                        key={reaction.id}
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleReaction(reaction.id)}
+                        aria-label={`React with ${reaction.id}`}
+                        className="p-1"
+                      >
+                        <reaction.icon className="h-5 w-5" />
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit task" disabled={task.isCompleted}>
-                  <Edit3 className="h-5 w-5 text-blue-600" />
-                </Button>
-              </>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            {showEditIcon && (
+              <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit task" disabled={task.isCompleted}>
+                <Edit3 className="h-5 w-5 text-blue-600" />
+              </Button>
             )}
             <Button variant="ghost" size="icon" onClick={() => onDeleteTask(task.id)} aria-label="Delete task">
               <Trash2 className="h-5 w-5 text-destructive" />
@@ -359,6 +322,15 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
             </div>
           )}
           {renderTaskCreationTime()}
+          {task.reactions && Object.keys(task.reactions).length > 0 && (
+            <div className="flex items-center space-x-2 pt-2">
+              {Object.entries(task.reactions).map(([emoji, count]) => (
+                <Badge key={emoji} variant="secondary" className="text-xs px-1.5 py-0.5">
+                  {emoji} {count}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </CardContent>
       <CardFooter className="pt-0 pb-3">
@@ -370,5 +342,4 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
     </Card>
   );
 });
-TaskInputCard.displayName = 'TaskInputCard'; // Good practice for React.memo
-
+TaskInputCard.displayName = 'TaskInputCard';

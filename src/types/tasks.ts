@@ -9,4 +9,5 @@ export interface Task {
   note?: string;
   isCompleted: boolean;
   createdAt?: string; // ISO string timestamp
+  reactions?: { [emoji: string]: number }; // Added reactions field
 }
