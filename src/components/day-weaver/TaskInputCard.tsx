@@ -338,7 +338,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
           {task.note && (
             <div className="flex items-start pt-1">
               <FileText className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span className="whitespace-pre-wrap break-words">Note: {task.note}</span>
+              <span className="whitespace-pre-wrap break-words italic">Note: {task.note}</span>
             </div>
           )}
         </div>
