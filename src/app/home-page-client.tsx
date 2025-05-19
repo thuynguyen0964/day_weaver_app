@@ -102,11 +102,12 @@ export default function HomePageClient() {
   }, [inputValue, router, searchParams]);
 
 
-  const handleAddTask = useCallback((newTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
+  const handleAddTask = useCallback((newTaskData: Omit<Task, 'id' | 'isCompleted' | 'createdAt'>) => {
     const newTask: Task = {
       ...newTaskData,
       id: Date.now().toString(),
       isCompleted: false,
+      createdAt: new Date().toISOString(),
     };
     setTasks((prevTasks) => [...prevTasks, newTask]);
     toast({ title: "Task Added", description: `"${newTask.text}" has been added to your list.` });
@@ -125,10 +126,10 @@ export default function HomePageClient() {
     );
   }, []);
 
-  const handleUpdateTask = useCallback((taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
+  const handleUpdateTask = useCallback((taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted' | 'createdAt'>) => {
     setTasks(prevTasks =>
       prevTasks.map(task =>
-        task.id === taskId ? { ...task, ...updatedTaskData, id: task.id, isCompleted: task.isCompleted } : task
+        task.id === taskId ? { ...task, ...updatedTaskData, id: task.id, isCompleted: task.isCompleted, createdAt: task.createdAt } : task
       )
     );
     toast({ title: "Task Updated", description: `"${updatedTaskData.text}" has been updated.` });

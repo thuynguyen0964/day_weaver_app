@@ -6,7 +6,7 @@ import React, { useState } from 'react'; // Import React for React.memo
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parse } from 'date-fns';
+import { format, parse, parseISO, formatDistanceToNow, isValid } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +36,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Bell, Send } from 'lucide-react';
+import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Bell, Send, Clock } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -60,7 +60,7 @@ interface TaskInputCardProps {
   task: Task;
   onDeleteTask: (taskId: string) => void;
   onToggleComplete: (taskId: string) => void;
-  onUpdateTask: (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted'>) => void;
+  onUpdateTask: (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted' | 'createdAt'>) => void;
 }
 
 // Wrap TaskInputCard with React.memo
@@ -79,10 +79,6 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
     formState: { errors },
   } = useForm<EditTaskFormData>({
     resolver: zodResolver(editTaskSchema),
-    // Ensure defaultValues are updated if task prop changes while editing form is not visible
-    // This is implicitly handled by re-mounting or re-initializing useForm if isEditing becomes true
-    // or key prop changes. For direct prop updates while form is visible, a useEffect might be needed.
-    // However, for this case, defaultValues are set when edit mode begins.
     defaultValues: {
       text: task.text,
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
@@ -99,7 +95,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
   } as const;
 
   const handleEdit = () => {
-    reset({ // Reset form with current task values when entering edit mode
+    reset({ 
       text: task.text,
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
       deadlineTime: task.deadline ? format(parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()), 'HH:mm') : format(new Date(), "HH:mm"),
@@ -158,11 +154,31 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
         isTaskActuallyExpired = true;
       }
     } catch (e) {
-      console.warn(`Invalid date format for task "${task.text}" in TaskInputCard: ${task.deadline}`);
+      // console.warn(`Invalid date format for task "${task.text}" in TaskInputCard: ${task.deadline}`);
     }
   }
 
   const showBellAndEditIcons = !task.isCompleted && !isTaskActuallyExpired;
+
+  const renderTaskCreationTime = () => {
+    if (!task.createdAt) return null;
+    try {
+      const parsedCreatedAt = parseISO(task.createdAt);
+      if (!isValid(parsedCreatedAt)) return null;
+
+      const formattedAbsoluteTime = format(parsedCreatedAt, 'yyyy-MM-dd HH:mm');
+      const relativeTime = formatDistanceToNow(parsedCreatedAt, { addSuffix: true });
+      return (
+        <div className="flex items-center text-xs text-muted-foreground pt-1">
+          <Clock className="h-3 w-3 mr-2 flex-shrink-0" />
+          <span>Created: {formattedAbsoluteTime} ({relativeTime})</span>
+        </div>
+      );
+    } catch (e) {
+      // console.warn(`Invalid createdAt date format for task "${task.text}": ${task.createdAt}`);
+      return null;
+    }
+  };
 
 
   if (isEditing) {
@@ -341,6 +357,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
               <span className="whitespace-pre-wrap break-words italic">Note: {task.note}</span>
             </div>
           )}
+          {renderTaskCreationTime()}
         </div>
       </CardContent>
       <CardFooter className="pt-0 pb-3">

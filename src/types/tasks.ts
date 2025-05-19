@@ -1,3 +1,4 @@
+
 export type TaskPriority = 'High' | 'Medium' | 'Low';
 
 export interface Task {
@@ -7,4 +8,5 @@ export interface Task {
   priority: TaskPriority;
   note?: string; // Replaced durationEstimate with note
   isCompleted: boolean;
+  createdAt?: string; // Timestamp of when the task was created
 }
