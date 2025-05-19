@@ -24,6 +24,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [inputValue, setInputValue] = useState(''); // Raw input value from the search field
   const [searchTerm, setSearchTerm] = useState(''); // Debounced search term
+  const [isDebouncing, setIsDebouncing] = useState(false); // New state for loading indicator
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,22 +66,35 @@ export default function HomePage() {
   }, [tasks]);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setSearchTerm(inputValue);
-      // When a new search term is set, reset search page to 1
-      if (inputValue !== searchTerm) {
-        const currentParams = new URLSearchParams(searchParams.toString());
-        if (currentParams.get('searchPage') !== '1') {
+    if (!inputValue) { // If input is cleared
+      setSearchTerm("");
+      setIsDebouncing(false);
+      const currentParams = new URLSearchParams(searchParams.toString());
+      if (currentParams.has('searchPage') && currentParams.get('searchPage') !== '1') {
           currentParams.set('searchPage', '1');
           router.replace(`?${currentParams.toString()}`, { scroll: false });
-        }
+      }
+      return; // Exit: no timeout needed
+    }
+
+    // Input is not empty, so start debouncing
+    setIsDebouncing(true);
+    const handler = setTimeout(() => {
+      setSearchTerm(inputValue);
+      setIsDebouncing(false);
+
+      const currentParams = new URLSearchParams(searchParams.toString());
+      if (currentParams.get('searchPage') !== '1') {
+        currentParams.set('searchPage', '1');
+        router.replace(`?${currentParams.toString()}`, { scroll: false });
       }
     }, DEBOUNCE_DELAY);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [inputValue, router, searchParams, searchTerm]);
+  }, [inputValue, router, searchParams]);
+
 
   const handleAddTask = useCallback((newTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
     const newTask: Task = {
@@ -127,24 +141,22 @@ export default function HomePage() {
   const now = useMemo(() => new Date(), []);
 
   const tasksMatchingSearch = useMemo(() => {
-    if (!searchTerm) return [];
+    if (!searchTerm) return tasks; // If no search term, return all tasks for further filtering by tabs or show all if search input is active but term is empty
     return tasks.filter(task =>
       task.text.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [tasks, searchTerm]);
-
+  
+  // Filtered lists for Tabs (only when not actively searching with inputValue)
   const doneTasks = useMemo(() => {
-    if (inputValue || searchTerm) return [];
     return tasks.filter(task => task.isCompleted);
-  }, [tasks, inputValue, searchTerm]);
+  }, [tasks]);
 
   const notDoneTasksForTabs = useMemo(() => {
-    if (inputValue || searchTerm) return [];
     return tasks.filter(task => !task.isCompleted);
-  }, [tasks, inputValue, searchTerm]);
+  }, [tasks]);
 
   const expiredTasksForTabs = useMemo(() => {
-    if (inputValue || searchTerm) return [];
     return notDoneTasksForTabs.filter(task => {
       try {
         const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
@@ -153,10 +165,9 @@ export default function HomePage() {
         return false;
       }
     });
-  }, [notDoneTasksForTabs, now, inputValue, searchTerm]);
+  }, [notDoneTasksForTabs, now]);
 
   const pendingTasksForTabs = useMemo(() => {
-    if (inputValue || searchTerm) return [];
     return notDoneTasksForTabs.filter(task => {
       const isExpired = expiredTasksForTabs.some(et => et.id === task.id);
       if (isExpired) return false;
@@ -167,7 +178,18 @@ export default function HomePage() {
         return true;
       }
     });
-  }, [notDoneTasksForTabs, expiredTasksForTabs, now, inputValue, searchTerm]);
+  }, [notDoneTasksForTabs, expiredTasksForTabs, now]);
+
+
+  // Filtered list for active search display
+  const activeSearchList = useMemo(() => {
+    if (!inputValue && !searchTerm) return []; // Not searching
+    if (!searchTerm && inputValue) return []; // Debouncing, no results yet based on final searchTerm
+    return tasks.filter(task =>
+      task.text.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tasks, searchTerm, inputValue]);
+
 
   const handlePageChange = useCallback((listKey: 'pendingPage' | 'donePage' | 'expiredPage' | 'searchPage', newPage: number) => {
     const currentParams = new URLSearchParams(searchParams.toString());
@@ -200,13 +222,13 @@ export default function HomePage() {
     return expiredTasksForTabs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [expiredTasksForTabs, currentPageExpired]);
   
-  const currentPageSearch = getPageForList('searchPage', tasksMatchingSearch.length);
-  const totalSearchPages = Math.ceil(tasksMatchingSearch.length / ITEMS_PER_PAGE);
+  const currentPageSearch = getPageForList('searchPage', activeSearchList.length);
+  const totalSearchPages = Math.ceil(activeSearchList.length / ITEMS_PER_PAGE);
   const paginatedSearchTasks = useMemo(() => {
-    if (tasksMatchingSearch.length === 0) return [];
+    if (activeSearchList.length === 0) return [];
     const startIndex = (currentPageSearch - 1) * ITEMS_PER_PAGE;
-    return tasksMatchingSearch.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [tasksMatchingSearch, currentPageSearch]);
+    return activeSearchList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [activeSearchList, currentPageSearch]);
 
   const renderPaginationControls = (
     listKey: 'pendingPage' | 'donePage' | 'expiredPage' | 'searchPage',
@@ -271,30 +293,37 @@ export default function HomePage() {
                     </div>
                     {tasks.length > 0 && (
                         <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm">
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete All
+                          <Trash2 className="mr-1 h-4 w-4" /> Delete All
                         </Button>
                     )}
                   </div>
                 )}
               </div>
 
-              {inputValue || searchTerm ? (
+              {inputValue ? ( // If user is typing in search
                 <>
-                  <TaskInputList
-                    tasks={paginatedSearchTasks}
-                    onDeleteTask={handleDeleteTask}
-                    onToggleComplete={handleToggleCompleteTaskInput}
-                    onUpdateTask={handleUpdateTask}
-                    isSearchResult={true}
-                  />
-                  {tasks.length > 0 && (inputValue || searchTerm) && (
-                     <p className="text-sm text-muted-foreground mt-2 text-center">
-                       Found <strong className="text-foreground">{tasksMatchingSearch.length}</strong> matching your search.
-                     </p>
+                  {isDebouncing ? (
+                    <p className="text-center text-muted-foreground py-8">Loading...</p>
+                  ) : (
+                    <>
+                      <TaskInputList
+                        tasks={paginatedSearchTasks}
+                        onDeleteTask={handleDeleteTask}
+                        onToggleComplete={handleToggleCompleteTaskInput}
+                        onUpdateTask={handleUpdateTask}
+                        isSearchResult={true}
+                      />
+                       {/* Show count only after search is complete (not debouncing) and a search term was actually used */}
+                       {searchTerm && (
+                          <p className="text-sm text-muted-foreground mt-2 text-center">
+                            Found <strong className="text-foreground">{activeSearchList.length}</strong> matching your search.
+                          </p>
+                       )}
+                      {renderPaginationControls('searchPage', currentPageSearch, totalSearchPages)}
+                    </>
                   )}
-                  {renderPaginationControls('searchPage', currentPageSearch, totalSearchPages)}
                 </>
-              ) : tasks.length > 0 ? (
+              ) : tasks.length > 0 ? ( // Not searching, show tabs if tasks exist
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="grid w-full grid-cols-3 mb-4">
                     <TabsTrigger value="pending">Pending ({pendingTasksForTabs.length})</TabsTrigger>
@@ -332,7 +361,7 @@ export default function HomePage() {
                     {renderPaginationControls('expiredPage', currentPageExpired, totalExpiredPages)}
                   </TabsContent>
                 </Tabs>
-              ) : (
+              ) : ( // No tasks at all and not searching
                 <Card className="text-center py-8 border-dashed">
                   <CardHeader>
                     <ListChecks className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
@@ -354,3 +383,4 @@ export default function HomePage() {
     </div>
   );
 }
+
