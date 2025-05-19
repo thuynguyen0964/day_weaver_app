@@ -10,11 +10,12 @@ import type { Task } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
 import { Brain, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { parse } from 'date-fns';
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState('pending'); // Default to pending
 
   useEffect(() => {
     const storedTasks = localStorage.getItem('dayWeaverTasks');
@@ -69,8 +70,29 @@ export default function HomePage() {
     });
   };
 
-  const pendingTasks = tasks.filter(task => !task.isCompleted);
+  const now = new Date();
+
   const doneTasks = tasks.filter(task => task.isCompleted);
+  const expiredTasks = tasks.filter(task => {
+    try {
+      const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
+      return !task.isCompleted && deadlineDate < now;
+    } catch (e) {
+      // Handle invalid date format if necessary, or assume not expired
+      console.warn(`Invalid date format for task "${task.text}": ${task.deadline}`);
+      return false; 
+    }
+  });
+  const pendingTasks = tasks.filter(task => {
+     try {
+      const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
+      return !task.isCompleted && deadlineDate >= now;
+    } catch (e) {
+      console.warn(`Invalid date format for task "${task.text}": ${task.deadline}`);
+      return true; // Assume pending if date is invalid, or handle differently
+    }
+  });
+
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -95,13 +117,22 @@ export default function HomePage() {
                 )}
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="pending">Pending ({pendingTasks.length})</TabsTrigger>
+                  <TabsTrigger value="expired">Expired ({expiredTasks.length})</TabsTrigger>
                   <TabsTrigger value="done">Done ({doneTasks.length})</TabsTrigger>
                 </TabsList>
                 <TabsContent value="pending">
                   <TaskInputList
                     tasks={pendingTasks}
+                    onDeleteTask={handleDeleteTask}
+                    onToggleComplete={handleToggleCompleteTaskInput}
+                    onUpdateTask={handleUpdateTask}
+                  />
+                </TabsContent>
+                <TabsContent value="expired">
+                  <TaskInputList
+                    tasks={expiredTasks}
                     onDeleteTask={handleDeleteTask}
                     onToggleComplete={handleToggleCompleteTaskInput}
                     onUpdateTask={handleUpdateTask}
