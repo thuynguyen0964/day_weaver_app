@@ -7,10 +7,5 @@ export interface Task {
   priority: TaskPriority;
   durationEstimate?: string; // e.g., 1h, 30m
   isCompleted: boolean;
-  trackedTimeSeconds: number; 
-}
-
-export interface ScheduledTask extends Task {
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
+  // trackedTimeSeconds removed as it was part of the schedule feature
 }
