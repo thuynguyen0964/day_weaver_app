@@ -2,6 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
+import React from 'react'; // Import React for React.memo
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +10,6 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Removed Textarea import
 import {
   Select,
   SelectContent,
@@ -43,7 +43,8 @@ interface TaskFormProps {
   onAddTask: (task: Omit<Task, 'id' | 'isCompleted'>) => void;
 }
 
-export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
+// Wrap TaskForm with React.memo
+export const TaskForm: FC<TaskFormProps> = React.memo(({ onAddTask }) => {
   const {
     register,
     handleSubmit,
@@ -68,7 +69,7 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
       priority: data.priority as TaskPriority,
       note: data.note,
     });
-    reset({ 
+    reset({
         text: '',
         priority: 'Medium',
         deadlineDate: new Date(),
@@ -158,7 +159,7 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
               {errors.note && <p className="text-destructive text-xs mt-1">{errors.note.message}</p>}
             </div>
           </div>
-          
+
           <Button type="submit" className="w-full md:w-auto">
             <PlusCircle className="mr-2 h-5 w-5" /> Add Task
           </Button>
@@ -166,4 +167,5 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
       </CardContent>
     </Card>
   );
-};
+});
+TaskForm.displayName = 'TaskForm'; // Good practice for React.memo

@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useState } from 'react';
+import React, { useState } from 'react'; // Import React for React.memo
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,7 +34,7 @@ import {
   DialogTitle,
   DialogClose,
   DialogFooter,
-  DialogTrigger, // Added DialogTrigger
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Bell, Send } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
@@ -63,7 +63,8 @@ interface TaskInputCardProps {
   onUpdateTask: (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted'>) => void;
 }
 
-export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onToggleComplete, onUpdateTask }) => {
+// Wrap TaskInputCard with React.memo
+export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDeleteTask, onToggleComplete, onUpdateTask }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [reminderEmail, setReminderEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -78,6 +79,10 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     formState: { errors },
   } = useForm<EditTaskFormData>({
     resolver: zodResolver(editTaskSchema),
+    // Ensure defaultValues are updated if task prop changes while editing form is not visible
+    // This is implicitly handled by re-mounting or re-initializing useForm if isEditing becomes true
+    // or key prop changes. For direct prop updates while form is visible, a useEffect might be needed.
+    // However, for this case, defaultValues are set when edit mode begins.
     defaultValues: {
       text: task.text,
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
@@ -94,7 +99,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
   } as const;
 
   const handleEdit = () => {
-    reset({
+    reset({ // Reset form with current task values when entering edit mode
       text: task.text,
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
       deadlineTime: task.deadline ? format(parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()), 'HH:mm') : format(new Date(), "HH:mm"),
@@ -123,10 +128,10 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     try {
       emailSchema.parse(reminderEmail);
       setEmailError(null);
-      
+
       toast({
-        title: "Reminder Set",
-        description: `Reminder for "${task.text}" will be sent to ${reminderEmail}. (Simulated)`,
+        title: "Reminder Set (Simulated)",
+        description: `Reminder for "${task.text}" will be sent to ${reminderEmail}.`,
       });
 
       setReminderEmail('');
@@ -154,14 +159,13 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
       }
     } catch (e) {
       console.warn(`Invalid date format for task "${task.text}" in TaskInputCard: ${task.deadline}`);
-      // If date is invalid, treat as not expired for icon display purposes here
     }
   }
 
   const showBellAndEditIcons = !task.isCompleted && !isTaskActuallyExpired;
 
 
-  if (isEditing) { // Edit mode is only reachable if task is not completed and not expired
+  if (isEditing) {
     return (
       <Card className="mb-4 shadow-lg border-primary border-2">
         <CardHeader>
@@ -347,4 +351,5 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
       </CardFooter>
     </Card>
   );
-};
+});
+TaskInputCard.displayName = 'TaskInputCard'; // Good practice for React.memo
