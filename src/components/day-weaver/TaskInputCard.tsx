@@ -95,7 +95,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
   } as const;
 
   const handleEdit = () => {
-    reset({ 
+    reset({
       text: task.text,
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
       deadlineTime: task.deadline ? format(parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()), 'HH:mm') : format(new Date(), "HH:mm"),
@@ -120,11 +120,13 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
     setIsEditing(false);
   };
 
-  const handleSendReminder = async () => {
+  const handleSendReminder = () => {
     try {
       emailSchema.parse(reminderEmail);
       setEmailError(null);
 
+      // Simulate email sending
+      console.log(`Reminder for task "${task.text}" (Deadline: ${task.deadline}) would be sent to ${reminderEmail}`);
       toast({
         title: "Reminder Set (Simulated)",
         description: `Reminder for "${task.text}" will be sent to ${reminderEmail}.`,
@@ -166,12 +168,11 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
       const parsedCreatedAt = parseISO(task.createdAt);
       if (!isValid(parsedCreatedAt)) return null;
 
-      const formattedAbsoluteTime = format(parsedCreatedAt, 'yyyy-MM-dd HH:mm');
       const relativeTime = formatDistanceToNow(parsedCreatedAt, { addSuffix: true });
       return (
         <div className="flex items-center text-xs text-muted-foreground pt-1">
           <Clock className="h-3 w-3 mr-2 flex-shrink-0" />
-          <span>Created: {formattedAbsoluteTime} ({relativeTime})</span>
+          <span>Created: {relativeTime}</span>
         </div>
       );
     } catch (e) {
@@ -370,3 +371,4 @@ export const TaskInputCard: FC<TaskInputCardProps> = React.memo(({ task, onDelet
   );
 });
 TaskInputCard.displayName = 'TaskInputCard'; // Good practice for React.memo
+
