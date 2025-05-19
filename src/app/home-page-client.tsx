@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/day-weaver/PageHeader';
 import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
-import type { Task } from '@/types/tasks';
+import type { Task, TaskPriority } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
 import { Brain, Trash2, Search, ListChecks } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { parse, isValid, parseISO } from 'date-fns';
+import { parse, isValid, parseISO, format } from 'date-fns';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -48,23 +48,38 @@ export default function HomePageClient() {
     setIsLoading(true);
     try {
       const tasksCollection = collection(db, TASKS_COLLECTION);
-      // Order by 'createdAt' if you store it as a Firestore Timestamp, or by text for now
-      // For reliable date sorting, 'createdAt' should be a Firestore Timestamp.
-      // If it's an ISO string, sorting might not be perfect across all edge cases without conversion.
-      const q = query(tasksCollection, orderBy('createdAt', 'desc')); // Assuming createdAt is useful for ordering
+      const q = query(tasksCollection, orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
-      const fetchedTasks: Task[] = querySnapshot.docs.map(doc => {
-        const data = doc.data();
+      const fetchedTasks: Task[] = querySnapshot.docs.map(docSnapshot => {
+        const data = docSnapshot.data();
+        
+        let deadlineString: string;
+        if (data.deadline instanceof Timestamp) {
+          deadlineString = format(data.deadline.toDate(), 'yyyy-MM-dd HH:mm');
+        } else if (typeof data.deadline === 'string') {
+          deadlineString = data.deadline;
+        } else {
+          // Fallback for undefined or unexpected deadline types
+          // console.warn(`Task ${docSnapshot.id} has an invalid or missing deadline. Defaulting.`);
+          deadlineString = format(new Date(), 'yyyy-MM-dd HH:mm');
+        }
+
+        let createdAtString: string | undefined = undefined;
+        if (data.createdAt instanceof Timestamp) {
+          createdAtString = data.createdAt.toDate().toISOString();
+        } else if (typeof data.createdAt === 'string') {
+          createdAtString = data.createdAt;
+        }
+
         return {
-          id: doc.id,
-          text: data.text,
-          deadline: data.deadline,
-          priority: data.priority,
-          note: data.note,
-          isCompleted: data.isCompleted,
-          // Ensure createdAt is handled correctly, it might be a Firestore Timestamp
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : data.createdAt,
-        } as Task;
+          id: docSnapshot.id,
+          text: data.text as string,
+          deadline: deadlineString,
+          priority: data.priority as TaskPriority,
+          note: data.note as string | undefined,
+          isCompleted: data.isCompleted as boolean,
+          createdAt: createdAtString,
+        };
       });
       setTasks(fetchedTasks);
     } catch (error) {
@@ -73,8 +88,8 @@ export default function HomePageClient() {
         title: "Error Fetching Tasks",
         description: "Could not load tasks from the database.",
         variant: "destructive",
-      });
-      setTasks([]); // Fallback to empty list on error
+      })
+      setTasks([]);
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +114,7 @@ export default function HomePageClient() {
     if (!searchParams) return;
     if (!inputValue) {
       setSearchTerm("");
-      setIsDebouncing(false);
+      setIsDebouncing(false); // Reset debouncing state
       const currentParams = new URLSearchParams(searchParams.toString());
       if (currentParams.has('searchPage') && currentParams.get('searchPage') !== '1') {
         currentParams.set('searchPage', '1');
@@ -121,18 +136,18 @@ export default function HomePageClient() {
   }, [inputValue, router, searchParams]);
 
   const handleAddTask = useCallback(async (newTaskData: Omit<Task, 'id' | 'isCompleted' | 'createdAt'>) => {
-    const taskWithTimestamp = {
+    const taskWithTimestampAndCreationDate = {
       ...newTaskData,
       isCompleted: false,
-      createdAt: Timestamp.fromDate(new Date()), // Store as Firestore Timestamp
+      createdAt: Timestamp.fromDate(new Date()), // Firestore Timestamp for ordering/querying
     };
     try {
-      const docRef = await addDoc(collection(db, TASKS_COLLECTION), taskWithTimestamp);
+      const docRef = await addDoc(collection(db, TASKS_COLLECTION), taskWithTimestampAndCreationDate);
       const newTask: Task = {
         ...newTaskData,
         id: docRef.id,
         isCompleted: false,
-        createdAt: new Date().toISOString(), // For local state, keep as ISO string
+        createdAt: new Date().toISOString(), // ISO string for local state and display
       };
       setTasks((prevTasks) => [newTask, ...prevTasks].sort((a, b) => {
           const dateA = a.createdAt ? parseISO(a.createdAt) : new Date(0);
@@ -178,10 +193,9 @@ export default function HomePageClient() {
   const handleUpdateTask = useCallback(async (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted' | 'createdAt'>) => {
     try {
       const taskRef = doc(db, TASKS_COLLECTION, taskId);
-      // Ensure createdAt is not overwritten if it exists, or set it if it doesn't
-      // Firestore update won't create a field if it's not in the object.
-      // For simplicity, we assume createdAt is handled during task creation and doesn't change.
-      await updateDoc(taskRef, updatedTaskData);
+      // When updating, we pass the deadline string as is, since Firestore will store it as a string.
+      // createdAt is not updated here.
+      await updateDoc(taskRef, updatedTaskData); 
       setTasks(prevTasks =>
         prevTasks.map(task =>
           task.id === taskId ? { ...task, ...updatedTaskData, id: task.id, isCompleted: task.isCompleted, createdAt: task.createdAt } : task
@@ -196,7 +210,7 @@ export default function HomePageClient() {
 
   const handleDeleteAllTasks = useCallback(async () => {
     if (tasks.length === 0) return;
-    setIsLoading(true); // Indicate loading while deleting
+    setIsLoading(true); 
     try {
       const tasksCollectionRef = collection(db, TASKS_COLLECTION);
       const querySnapshot = await getDocs(tasksCollectionRef);
@@ -219,36 +233,48 @@ export default function HomePageClient() {
 
   const now = useMemo(() => new Date(), []);
 
-  const doneTasks = useMemo(() => tasks.filter(task => task.isCompleted), [tasks]);
-  const notDoneTasksForTabs = useMemo(() => tasks.filter(task => !task.isCompleted), [tasks]);
+  const tasksMatchingSearch = useMemo(() => {
+    if (!searchTerm) return tasks; // If no search term, return all tasks
+    return tasks.filter(task =>
+      task.text.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tasks, searchTerm]);
+  
+  const doneTasks = useMemo(() => tasksMatchingSearch.filter(task => task.isCompleted), [tasksMatchingSearch]);
+  const notDoneTasks = useMemo(() => tasksMatchingSearch.filter(task => !task.isCompleted), [tasksMatchingSearch]);
 
-  const expiredTasksForTabs = useMemo(() => {
-    return notDoneTasksForTabs.filter(task => {
+  const expiredTasks = useMemo(() => {
+    return notDoneTasks.filter(task => {
       try {
         const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
         return isValid(deadlineDate) && deadlineDate < now;
       } catch (e) { return false; }
     });
-  }, [notDoneTasksForTabs, now]);
+  }, [notDoneTasks, now]);
 
-  const pendingTasksForTabs = useMemo(() => {
-    return notDoneTasksForTabs.filter(task => {
-      const isExpired = expiredTasksForTabs.some(et => et.id === task.id);
-      if (isExpired) return false;
+  const pendingTasks = useMemo(() => {
+    return notDoneTasks.filter(task => {
+      const isExpired = expiredTasks.some(et => et.id === task.id);
+      if (isExpired) return false; // Don't include if it's already in expiredTasks
       try {
+        // Check if it's a valid date and not expired
         const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
         return isValid(deadlineDate) && deadlineDate >= now;
-      } catch (e) { return true; }
+      } catch (e) { 
+        // If parsing fails or it's not a valid date for future/present, consider it pending (or handle error)
+        return true; 
+      }
     });
-  }, [notDoneTasksForTabs, expiredTasksForTabs, now]);
+  }, [notDoneTasks, expiredTasks, now]);
+
 
   const activeSearchList = useMemo(() => {
-    if (!inputValue && !searchTerm) return [];
-    if (!searchTerm && inputValue) return [];
-    return tasks.filter(task =>
-      task.text.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [tasks, searchTerm, inputValue]);
+    if (!inputValue && !searchTerm) return []; // No input, no debounced search term
+    if (!searchTerm && inputValue) return []; // Input but not yet debounced (or debouncing)
+    // This list is now just tasksMatchingSearch, pagination will apply to it
+    return tasksMatchingSearch;
+  }, [tasksMatchingSearch, searchTerm, inputValue]);
+
 
   const handlePageChange = useCallback((listKey: 'pendingPage' | 'donePage' | 'expiredPage' | 'searchPage', newPage: number) => {
     if (!searchParams) return;
@@ -257,14 +283,16 @@ export default function HomePageClient() {
     router.push(`?${currentParams.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
-  const currentPagePending = getPageForList('pendingPage', pendingTasksForTabs.length);
-  const totalPendingPages = Math.ceil(pendingTasksForTabs.length / ITEMS_PER_PAGE);
+  // Pagination for Pending Tasks
+  const currentPagePending = getPageForList('pendingPage', pendingTasks.length);
+  const totalPendingPages = Math.ceil(pendingTasks.length / ITEMS_PER_PAGE);
   const paginatedPendingTasks = useMemo(() => {
-    if (pendingTasksForTabs.length === 0) return [];
+    if (pendingTasks.length === 0) return [];
     const startIndex = (currentPagePending - 1) * ITEMS_PER_PAGE;
-    return pendingTasksForTabs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [pendingTasksForTabs, currentPagePending]);
+    return pendingTasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [pendingTasks, currentPagePending]);
 
+  // Pagination for Done Tasks
   const currentPageDone = getPageForList('donePage', doneTasks.length);
   const totalDonePages = Math.ceil(doneTasks.length / ITEMS_PER_PAGE);
   const paginatedDoneTasks = useMemo(() => {
@@ -273,14 +301,16 @@ export default function HomePageClient() {
     return doneTasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [doneTasks, currentPageDone]);
 
-  const currentPageExpired = getPageForList('expiredPage', expiredTasksForTabs.length);
-  const totalExpiredPages = Math.ceil(expiredTasksForTabs.length / ITEMS_PER_PAGE);
+  // Pagination for Expired Tasks
+  const currentPageExpired = getPageForList('expiredPage', expiredTasks.length);
+  const totalExpiredPages = Math.ceil(expiredTasks.length / ITEMS_PER_PAGE);
   const paginatedExpiredTasks = useMemo(() => {
-    if (expiredTasksForTabs.length === 0) return [];
+    if (expiredTasks.length === 0) return [];
     const startIndex = (currentPageExpired - 1) * ITEMS_PER_PAGE;
-    return expiredTasksForTabs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [expiredTasksForTabs, currentPageExpired]);
+    return expiredTasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [expiredTasks, currentPageExpired]);
 
+  // Pagination for Search Results
   const currentPageSearch = getPageForList('searchPage', activeSearchList.length);
   const totalSearchPages = Math.ceil(activeSearchList.length / ITEMS_PER_PAGE);
   const paginatedSearchTasks = useMemo(() => {
@@ -288,6 +318,7 @@ export default function HomePageClient() {
     const startIndex = (currentPageSearch - 1) * ITEMS_PER_PAGE;
     return activeSearchList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [activeSearchList, currentPageSearch]);
+
 
   const renderPaginationControls = (
     listKey: 'pendingPage' | 'donePage' | 'expiredPage' | 'searchPage',
@@ -303,10 +334,10 @@ export default function HomePageClient() {
       </div>
     );
   };
-
+  
   const showSearchAndDeleteControls = tasks.length > 0 || inputValue;
 
-  if (isLoading && tasks.length === 0) { // Show main loading state only on initial load
+  if (isLoading && tasks.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-screen p-4 text-center">
         Loading tasks from database...
@@ -344,14 +375,14 @@ export default function HomePageClient() {
                 )}
               </div>
 
-              {inputValue ? (
+              {inputValue ? ( // If user is typing in search
                 <>
                   {isDebouncing ? (
                     <p className="text-center text-muted-foreground py-8">Loading...</p>
                   ) : (
                     <>
                       <TaskInputList tasks={paginatedSearchTasks} onDeleteTask={handleDeleteTask} onToggleComplete={handleToggleCompleteTaskInput} onUpdateTask={handleUpdateTask} isSearchResult={true} />
-                       {searchTerm && (
+                       {searchTerm && ( // Show count only after search term is set (debounced)
                           <p className="text-sm text-muted-foreground mt-2 text-center">
                             Found <strong className="text-foreground">{activeSearchList.length}</strong> matching your search.
                           </p>
@@ -360,12 +391,12 @@ export default function HomePageClient() {
                     </>
                   )}
                 </>
-              ) : tasks.length > 0 ? (
+              ) : tasks.length > 0 ? ( // Not searching, show tabs if tasks exist
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="grid w-full grid-cols-3 mb-4">
-                    <TabsTrigger value="pending">Pending ({pendingTasksForTabs.length})</TabsTrigger>
+                    <TabsTrigger value="pending">Pending ({pendingTasks.length})</TabsTrigger>
                     <TabsTrigger value="done">Done ({doneTasks.length})</TabsTrigger>
-                    <TabsTrigger value="expired">Expired ({expiredTasksForTabs.length})</TabsTrigger>
+                    <TabsTrigger value="expired">Expired ({expiredTasks.length})</TabsTrigger>
                   </TabsList>
                   <TabsContent value="pending">
                     <TaskInputList tasks={paginatedPendingTasks} onDeleteTask={handleDeleteTask} onToggleComplete={handleToggleCompleteTaskInput} onUpdateTask={handleUpdateTask} isSearchResult={false} />
@@ -376,11 +407,11 @@ export default function HomePageClient() {
                     {renderPaginationControls('donePage', currentPageDone, totalDonePages)}
                   </TabsContent>
                   <TabsContent value="expired">
-                    <TaskInputList tasks={paginatedExpiredTasks} onDeleteTask={handleDeleteTask} onToggleComplete={handleToggleCompleteTaskInput} onUpdateTask={handleUpdateTask} isSearchResult={false} />
+                    <TaskInputList tasks={paginatedExpiredTasks} onDeleteTask={handleDeleteTask} onToggleComplete={handleToggleCompleteTaskInput} onUpdateTask={handleUpdateTask} isSearchResult={false}/>
                     {renderPaginationControls('expiredPage', currentPageExpired, totalExpiredPages)}
                   </TabsContent>
                 </Tabs>
-              ) : (
+              ) : ( // No tasks and not searching
                 <Card className="text-center py-8 border-dashed">
                   <CardHeader>
                     <ListChecks className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
@@ -401,3 +432,5 @@ export default function HomePageClient() {
     </div>
   );
 }
+
+    
