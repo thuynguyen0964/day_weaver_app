@@ -30,8 +30,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -41,6 +39,7 @@ import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, F
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { sendTaskReminderEmail, type SendTaskReminderEmailInput } from '@/ai/flows/send-task-reminder-flow';
 
 // Schema for editing a task, similar to TaskForm
 const editTaskSchema = z.object({
@@ -48,7 +47,7 @@ const editTaskSchema = z.object({
   deadlineDate: z.date().refine(val => val >= new Date(new Date().setHours(0,0,0,0)), {
     message: "Deadline must be today or in the future."
   }),
-  deadlineTime: z.string().regex(/^([01]\d|2[0-2]):([0-5]\d)$/, "Invalid time format (HH:MM)."), // Corrected regex for 24h format
+  deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."),
   priority: z.enum(['High', 'Medium', 'Low']),
   note: z.string().optional(),
 });
@@ -95,7 +94,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
   } as const;
 
   const handleEdit = () => {
-    reset({ 
+    reset({
       text: task.text,
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
       deadlineTime: task.deadline ? format(parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()), 'HH:mm') : format(new Date(), "HH:mm"),
@@ -120,19 +119,44 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     setIsEditing(false);
   };
 
-  const handleSendReminder = () => {
+  const handleSendReminder = async () => {
     try {
       emailSchema.parse(reminderEmail);
       setEmailError(null);
-      toast({
-        title: "Reminder Set (Simulated)",
-        description: `A reminder for "${task.text}" will be sent to ${reminderEmail}.`,
-      });
+
+      const flowInput: SendTaskReminderEmailInput = {
+        taskText: task.text,
+        taskDeadline: task.deadline,
+        recipientEmail: reminderEmail,
+      };
+      
+      const result = await sendTaskReminderEmail(flowInput);
+
+      if (result.status === 'queued') {
+        toast({
+          title: "Reminder Set",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Reminder Failed",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+
       setReminderEmail('');
       setIsReminderDialogOpen(false);
     } catch (error) {
       if (error instanceof z.ZodError) {
         setEmailError(error.errors[0].message);
+      } else {
+        console.error("Error sending reminder:", error);
+        toast({
+          title: "Error",
+          description: "Could not process the reminder request.",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -257,11 +281,9 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                   <DialogTitle>Enter your email to get notify about this task</DialogTitle>
-                  {/* DialogDescription removed as per user request, title serves as description */}
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-1 items-center gap-4"> 
-                    {/* Label removed as per user request */}
+                  <div className="grid grid-cols-1 items-center gap-4">
                     <Input
                       id={`reminder-email-${task.id}`}
                       type="email"
@@ -270,11 +292,11 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
                         setReminderEmail(e.target.value);
                         if (emailError) setEmailError(null);
                       }}
-                      className="col-span-1" // Adjusted to col-span-1 since label is removed
+                      className="col-span-1"
                       placeholder="you@example.com"
                     />
                   </div>
-                  {emailError && <p className="text-destructive text-xs col-span-1 text-right -mt-2">{emailError}</p>} {/* Adjusted to col-span-1 */}
+                  {emailError && <p className="text-destructive text-xs col-span-1 text-right -mt-2">{emailError}</p>}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
@@ -319,5 +341,3 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     </Card>
   );
 };
-    
-    
