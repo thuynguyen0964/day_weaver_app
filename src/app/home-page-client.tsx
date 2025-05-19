@@ -9,7 +9,7 @@ import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
 import type { Task, TaskPriority } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Brain, Trash2, Search, ListChecks } from 'lucide-react';
+import { Brain, Trash2, Search, ListChecks, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,23 +57,17 @@ export default function HomePageClient() {
         if (data.deadline instanceof Timestamp) {
           deadlineString = format(data.deadline.toDate(), 'yyyy-MM-dd HH:mm');
         } else if (typeof data.deadline === 'string') {
-          // Attempt to parse and reformat to ensure consistency, 
-          // but fallback to original string if parsing fails.
           try {
             const parsedDate = parse(data.deadline, 'yyyy-MM-dd HH:mm', new Date());
             if (isValid(parsedDate)) {
               deadlineString = format(parsedDate, 'yyyy-MM-dd HH:mm');
             } else {
-              // console.warn(`Task ${docSnapshot.id} has an invalid deadline string format. Using original.`);
-              deadlineString = data.deadline; // Fallback to original if parsing an existing string fails
+              deadlineString = data.deadline; 
             }
           } catch (e) {
-            // console.warn(`Error parsing deadline string for task ${docSnapshot.id}. Using original.`);
-            deadlineString = data.deadline; // Fallback if any error during parsing
+            deadlineString = data.deadline; 
           }
         } else {
-          // Fallback for undefined or unexpected deadline types
-          // console.warn(`Task ${docSnapshot.id} has an invalid or missing deadline. Defaulting.`);
           deadlineString = format(new Date(), 'yyyy-MM-dd HH:mm');
         }
 
@@ -81,7 +75,7 @@ export default function HomePageClient() {
         if (data.createdAt instanceof Timestamp) {
           createdAtString = data.createdAt.toDate().toISOString();
         } else if (typeof data.createdAt === 'string') {
-          createdAtString = data.createdAt; // Assuming it's already an ISO string
+          createdAtString = data.createdAt; 
         }
 
         return {
@@ -102,7 +96,7 @@ export default function HomePageClient() {
         description: "Could not load tasks from the database.",
         variant: "destructive",
       })
-      setTasks([]); // Ensure tasks is empty on error
+      setTasks([]); 
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +121,7 @@ export default function HomePageClient() {
     if (!searchParams) return;
     if (!inputValue) {
       setSearchTerm("");
-      setIsDebouncing(false); // Reset debouncing state
+      setIsDebouncing(false); 
       const currentParams = new URLSearchParams(searchParams.toString());
       if (currentParams.has('searchPage') && currentParams.get('searchPage') !== '1') {
         currentParams.set('searchPage', '1');
@@ -152,7 +146,7 @@ export default function HomePageClient() {
     const taskWithTimestampAndCreationDate = {
       ...newTaskData,
       isCompleted: false,
-      createdAt: Timestamp.fromDate(new Date()), // Firestore Timestamp for ordering/querying
+      createdAt: Timestamp.fromDate(new Date()), 
     };
     try {
       const docRef = await addDoc(collection(db, TASKS_COLLECTION), taskWithTimestampAndCreationDate);
@@ -160,7 +154,7 @@ export default function HomePageClient() {
         ...newTaskData,
         id: docRef.id,
         isCompleted: false,
-        createdAt: new Date().toISOString(), // ISO string for local state and display
+        createdAt: new Date().toISOString(), 
       };
       setTasks((prevTasks) => [newTask, ...prevTasks].sort((a, b) => {
           const dateA = a.createdAt ? parseISO(a.createdAt) : new Date(0);
@@ -206,9 +200,7 @@ export default function HomePageClient() {
   const handleUpdateTask = useCallback(async (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted' | 'createdAt'>) => {
     try {
       const taskRef = doc(db, TASKS_COLLECTION, taskId);
-      // When updating, we pass the deadline string as is, since Firestore will store it as a string.
-      // createdAt is not updated here.
-      await updateDoc(taskRef, updatedTaskData as Partial<Task>); // Cast to Partial<Task> to satisfy updateDoc
+      await updateDoc(taskRef, updatedTaskData as Partial<Task>); 
       setTasks(prevTasks =>
         prevTasks.map(task =>
           task.id === taskId ? { ...task, ...updatedTaskData, id: task.id, isCompleted: task.isCompleted, createdAt: task.createdAt } : task
@@ -247,7 +239,7 @@ export default function HomePageClient() {
   const now = useMemo(() => new Date(), []);
 
   const tasksMatchingSearch = useMemo(() => {
-    if (!searchTerm) return tasks; // If no search term, return all tasks
+    if (!searchTerm) return tasks; 
     return tasks.filter(task =>
       task.text.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -268,13 +260,11 @@ export default function HomePageClient() {
   const pendingTasks = useMemo(() => {
     return notDoneTasks.filter(task => {
       const isExpired = expiredTasks.some(et => et.id === task.id);
-      if (isExpired) return false; // Don't include if it's already in expiredTasks
+      if (isExpired) return false; 
       try {
-        // Check if it's a valid date and not expired
         const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
         return isValid(deadlineDate) && deadlineDate >= now;
       } catch (e) { 
-        // If parsing fails or it's not a valid date for future/present, consider it pending (or handle error)
         return true; 
       }
     });
@@ -282,9 +272,8 @@ export default function HomePageClient() {
 
 
   const activeSearchList = useMemo(() => {
-    if (!inputValue && !searchTerm) return []; // No input, no debounced search term
-    if (!searchTerm && inputValue) return []; // Input but not yet debounced (or debouncing)
-    // This list is now just tasksMatchingSearch, pagination will apply to it
+    if (!inputValue && !searchTerm) return []; 
+    if (!searchTerm && inputValue) return []; 
     return tasksMatchingSearch;
   }, [tasksMatchingSearch, searchTerm, inputValue]);
 
@@ -296,7 +285,6 @@ export default function HomePageClient() {
     router.push(`?${currentParams.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
-  // Pagination for Pending Tasks
   const currentPagePending = getPageForList('pendingPage', pendingTasks.length);
   const totalPendingPages = Math.ceil(pendingTasks.length / ITEMS_PER_PAGE);
   const paginatedPendingTasks = useMemo(() => {
@@ -305,7 +293,6 @@ export default function HomePageClient() {
     return pendingTasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [pendingTasks, currentPagePending]);
 
-  // Pagination for Done Tasks
   const currentPageDone = getPageForList('donePage', doneTasks.length);
   const totalDonePages = Math.ceil(doneTasks.length / ITEMS_PER_PAGE);
   const paginatedDoneTasks = useMemo(() => {
@@ -314,7 +301,6 @@ export default function HomePageClient() {
     return doneTasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [doneTasks, currentPageDone]);
 
-  // Pagination for Expired Tasks
   const currentPageExpired = getPageForList('expiredPage', expiredTasks.length);
   const totalExpiredPages = Math.ceil(expiredTasks.length / ITEMS_PER_PAGE);
   const paginatedExpiredTasks = useMemo(() => {
@@ -323,7 +309,6 @@ export default function HomePageClient() {
     return expiredTasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [expiredTasks, currentPageExpired]);
 
-  // Pagination for Search Results
   const currentPageSearch = getPageForList('searchPage', activeSearchList.length);
   const totalSearchPages = Math.ceil(activeSearchList.length / ITEMS_PER_PAGE);
   const paginatedSearchTasks = useMemo(() => {
@@ -364,7 +349,10 @@ export default function HomePageClient() {
             </div>
             <div>
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold text-primary">Your Task List</h3>
+                <h3 className="text-lg font-semibold text-primary flex items-center">
+                  <span className="hidden md:inline">Your Task List</span>
+                  <ListChecks className="h-6 w-6 md:hidden" />
+                </h3>
                 {showSearchAndDeleteControls && (
                   <div className="flex items-center space-x-2">
                     <div className="relative flex items-center">
@@ -381,15 +369,19 @@ export default function HomePageClient() {
               </div>
 
               {isLoading && tasks.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Loading tasks...</p>
-              ) : inputValue ? ( // If user is typing in search
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : inputValue ? ( 
                 <>
                   {isDebouncing ? (
-                    <p className="text-center text-muted-foreground py-8">Loading...</p>
+                    <div className="flex justify-center items-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
                   ) : (
                     <>
                       <TaskInputList tasks={paginatedSearchTasks} onDeleteTask={handleDeleteTask} onToggleComplete={handleToggleCompleteTaskInput} onUpdateTask={handleUpdateTask} isSearchResult={true} />
-                       {searchTerm && ( // Show count only after search term is set (debounced)
+                       {searchTerm && ( 
                           <p className="text-sm text-muted-foreground mt-2 text-center">
                             Found <strong className="text-foreground">{activeSearchList.length}</strong> matching your search.
                           </p>
@@ -398,7 +390,7 @@ export default function HomePageClient() {
                     </>
                   )}
                 </>
-              ) : tasks.length > 0 ? ( // Not searching, show tabs if tasks exist
+              ) : tasks.length > 0 ? ( 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="grid w-full grid-cols-3 mb-4">
                     <TabsTrigger value="pending">Pending ({pendingTasks.length})</TabsTrigger>
@@ -418,7 +410,7 @@ export default function HomePageClient() {
                     {renderPaginationControls('expiredPage', currentPageExpired, totalExpiredPages)}
                   </TabsContent>
                 </Tabs>
-              ) : ( // No tasks and not searching
+              ) : ( 
                 <Card className="text-center py-8 border-dashed">
                   <CardHeader>
                     <ListChecks className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
