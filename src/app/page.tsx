@@ -24,12 +24,15 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [inputValue, setInputValue] = useState(''); // Raw input value from the search field
   const [searchTerm, setSearchTerm] = useState(''); // Debounced search term
-  const [isDebouncing, setIsDebouncing] = useState(false); // New state for loading indicator
+  const [isDebouncing, setIsDebouncing] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const getPageForList = useCallback((listKey: string, totalItems: number): number => {
+    if (!searchParams) { // Guard against null searchParams
+      return 1; // Default to page 1 if searchParams not ready
+    }
     const pageFromUrl = searchParams.get(listKey);
     let page = parseInt(pageFromUrl || '1', 10);
     if (isNaN(page) || page < 1) {
@@ -66,18 +69,21 @@ export default function HomePage() {
   }, [tasks]);
 
   useEffect(() => {
-    if (!inputValue) { // If input is cleared
+    if (!searchParams) { // Guard: wait for searchParams to be available
+      return;
+    }
+
+    if (!inputValue) {
       setSearchTerm("");
-      setIsDebouncing(false);
+      setIsDebouncing(false); // Reset debouncing state
       const currentParams = new URLSearchParams(searchParams.toString());
       if (currentParams.has('searchPage') && currentParams.get('searchPage') !== '1') {
           currentParams.set('searchPage', '1');
           router.replace(`?${currentParams.toString()}`, { scroll: false });
       }
-      return; // Exit: no timeout needed
+      return;
     }
 
-    // Input is not empty, so start debouncing
     setIsDebouncing(true);
     const handler = setTimeout(() => {
       setSearchTerm(inputValue);
@@ -141,13 +147,12 @@ export default function HomePage() {
   const now = useMemo(() => new Date(), []);
 
   const tasksMatchingSearch = useMemo(() => {
-    if (!searchTerm) return tasks; // If no search term, return all tasks for further filtering by tabs or show all if search input is active but term is empty
+    if (!searchTerm) return tasks;
     return tasks.filter(task =>
       task.text.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [tasks, searchTerm]);
   
-  // Filtered lists for Tabs (only when not actively searching with inputValue)
   const doneTasks = useMemo(() => {
     return tasks.filter(task => task.isCompleted);
   }, [tasks]);
@@ -181,10 +186,9 @@ export default function HomePage() {
   }, [notDoneTasksForTabs, expiredTasksForTabs, now]);
 
 
-  // Filtered list for active search display
   const activeSearchList = useMemo(() => {
-    if (!inputValue && !searchTerm) return []; // Not searching
-    if (!searchTerm && inputValue) return []; // Debouncing, no results yet based on final searchTerm
+    if (!inputValue && !searchTerm) return [];
+    if (!searchTerm && inputValue) return []; 
     return tasks.filter(task =>
       task.text.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -192,12 +196,14 @@ export default function HomePage() {
 
 
   const handlePageChange = useCallback((listKey: 'pendingPage' | 'donePage' | 'expiredPage' | 'searchPage', newPage: number) => {
+    if (!searchParams) { // Guard against null searchParams
+      return;
+    }
     const currentParams = new URLSearchParams(searchParams.toString());
     currentParams.set(listKey, newPage.toString());
     router.push(`?${currentParams.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
-  // Pagination calculations
   const currentPagePending = getPageForList('pendingPage', pendingTasksForTabs.length);
   const totalPendingPages = Math.ceil(pendingTasksForTabs.length / ITEMS_PER_PAGE);
   const paginatedPendingTasks = useMemo(() => {
@@ -300,7 +306,7 @@ export default function HomePage() {
                 )}
               </div>
 
-              {inputValue ? ( // If user is typing in search
+              {inputValue ? (
                 <>
                   {isDebouncing ? (
                     <p className="text-center text-muted-foreground py-8">Loading...</p>
@@ -313,7 +319,6 @@ export default function HomePage() {
                         onUpdateTask={handleUpdateTask}
                         isSearchResult={true}
                       />
-                       {/* Show count only after search is complete (not debouncing) and a search term was actually used */}
                        {searchTerm && (
                           <p className="text-sm text-muted-foreground mt-2 text-center">
                             Found <strong className="text-foreground">{activeSearchList.length}</strong> matching your search.
@@ -323,7 +328,7 @@ export default function HomePage() {
                     </>
                   )}
                 </>
-              ) : tasks.length > 0 ? ( // Not searching, show tabs if tasks exist
+              ) : tasks.length > 0 ? (
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="grid w-full grid-cols-3 mb-4">
                     <TabsTrigger value="pending">Pending ({pendingTasksForTabs.length})</TabsTrigger>
@@ -361,7 +366,7 @@ export default function HomePage() {
                     {renderPaginationControls('expiredPage', currentPageExpired, totalExpiredPages)}
                   </TabsContent>
                 </Tabs>
-              ) : ( // No tasks at all and not searching
+              ) : (
                 <Card className="text-center py-8 border-dashed">
                   <CardHeader>
                     <ListChecks className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
