@@ -2,11 +2,11 @@
 export type TaskPriority = 'High' | 'Medium' | 'Low';
 
 export interface Task {
-  id: string;
-  text: string; // Renamed from 'task' to 'text' to avoid conflict with 'task' function name
+  id: string; // Firestore document ID
+  text: string;
   deadline: string; // YYYY-MM-DD HH:mm
   priority: TaskPriority;
-  note?: string; // Replaced durationEstimate with note
+  note?: string;
   isCompleted: boolean;
-  createdAt?: string; // Timestamp of when the task was created
+  createdAt?: string; // ISO string timestamp
 }
