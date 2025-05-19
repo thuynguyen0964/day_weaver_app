@@ -177,7 +177,7 @@ export default function HomePage() {
                        />
                     </div>
                     {tasks.length > 0 && ( // Delete All only if there are tasks
-                        <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm">
+                        <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm"> {/* Changed size to sm */}
                           <Trash2 className="mr-2 h-4 w-4" /> Delete All
                         </Button>
                     )}
@@ -197,7 +197,7 @@ export default function HomePage() {
                   {/* Show count only if there were base tasks and a search is active/typed */}
                   {tasks.length > 0 && (inputValue || searchTerm) && (
                      <p className="text-sm text-muted-foreground mt-2 text-center">
-                       Found {tasksMatchingSearch.length} matching task{tasksMatchingSearch.length !== 1 ? 's' : ''}.
+                       Found <strong className="text-foreground">{tasksMatchingSearch.length}</strong> matching your search. {/* Updated text and added strong tag */}
                      </p>
                   )}
                 </>
@@ -258,3 +258,4 @@ export default function HomePage() {
     </div>
   );
 }
+
