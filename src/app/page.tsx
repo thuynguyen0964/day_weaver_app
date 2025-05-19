@@ -1,28 +1,41 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/day-weaver/PageHeader';
 import { TaskForm } from '@/components/day-weaver/TaskForm';
 import { TaskInputList } from '@/components/day-weaver/TaskInputList';
 import type { Task } from '@/types/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Brain, Trash2, Search } from 'lucide-react'; // Added Search icon
+import { Brain, Trash2, Search } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from '@/components/ui/input'; // Added Input import
+import { Input } from '@/components/ui/input';
 import { parse } from 'date-fns';
+
+const DEBOUNCE_DELAY = 300; // 300ms delay for search debounce
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('pending');
-  const [searchTerm, setSearchTerm] = useState(''); // State for search term
+  const [inputValue, setInputValue] = useState(''); // Raw input value from the search field
+  const [searchTerm, setSearchTerm] = useState(''); // Debounced search term
 
   useEffect(() => {
     const storedTasks = localStorage.getItem('dayWeaverTasks');
     if (storedTasks) {
-      setTasks(JSON.parse(storedTasks));
+      try {
+        const parsedTasks = JSON.parse(storedTasks);
+        if (Array.isArray(parsedTasks)) {
+          setTasks(parsedTasks);
+        } else {
+          setTasks([]); // Reset if stored data is not an array
+        }
+      } catch (error) {
+        console.error("Failed to parse tasks from localStorage", error);
+        setTasks([]); // Reset on error
+      }
     }
   }, []);
 
@@ -30,7 +43,18 @@ export default function HomePage() {
     localStorage.setItem('dayWeaverTasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  const handleAddTask = (newTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
+  // Debounce effect for search term
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, DEBOUNCE_DELAY);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [inputValue]);
+
+  const handleAddTask = useCallback((newTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
     const newTask: Task = {
       ...newTaskData,
       id: Date.now().toString(),
@@ -38,31 +62,31 @@ export default function HomePage() {
     };
     setTasks((prevTasks) => [...prevTasks, newTask]);
     toast({ title: "Task Added", description: `"${newTask.text}" has been added to your list.` });
-  };
+  }, [toast]);
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = useCallback((taskId: string) => {
     setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
     toast({ title: "Task Deleted", description: "The task has been removed." });
-  };
+  }, [toast]);
 
-  const handleToggleCompleteTaskInput = (taskId: string) => {
+  const handleToggleCompleteTaskInput = useCallback((taskId: string) => {
     setTasks((prevTasks) =>
       prevTasks.map((task) =>
         task.id === taskId ? { ...task, isCompleted: !task.isCompleted } : task
       )
     );
-  };
+  }, []);
 
-  const handleUpdateTask = (taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
+  const handleUpdateTask = useCallback((taskId: string, updatedTaskData: Omit<Task, 'id' | 'isCompleted'>) => {
     setTasks(prevTasks =>
       prevTasks.map(task =>
         task.id === taskId ? { ...task, ...updatedTaskData, id: task.id, isCompleted: task.isCompleted } : task
       )
     );
     toast({ title: "Task Updated", description: `"${updatedTaskData.text}" has been updated.` });
-  };
+  }, [toast]);
 
-  const handleDeleteAllTasks = () => {
+  const handleDeleteAllTasks = useCallback(() => {
     if (tasks.length === 0) return;
     setTasks([]);
     toast({
@@ -70,43 +94,51 @@ export default function HomePage() {
       description: "All tasks have been removed from your list.",
       variant: "destructive",
     });
-  };
+  }, [tasks.length, toast]);
 
-  const now = new Date();
+  const now = useMemo(() => new Date(), []); // Memoize 'now' if it's only needed once per render cycle related to tasks/search
 
-  // 1. Filter by search term first
-  const searchedTasks = tasks.filter(task =>
-    task.text.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const searchedTasks = useMemo(() => {
+    if (!searchTerm) return tasks;
+    return tasks.filter(task =>
+      task.text.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tasks, searchTerm]);
 
-  // 2. Then filter searchedTasks into categories
-  const doneTasks = searchedTasks.filter(task => task.isCompleted);
+  const doneTasks = useMemo(() => {
+    return searchedTasks.filter(task => task.isCompleted);
+  }, [searchedTasks]);
   
-  const notDoneTasks = searchedTasks.filter(task => !task.isCompleted);
+  const notDoneTasks = useMemo(() => {
+    return searchedTasks.filter(task => !task.isCompleted);
+  }, [searchedTasks]);
 
-  const expiredTasks = notDoneTasks.filter(task => {
-    try {
-      const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
-      return deadlineDate < now;
-    } catch (e) {
-      console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as not expired for filtering)`);
-      return false; 
-    }
-  });
+  const expiredTasks = useMemo(() => {
+    return notDoneTasks.filter(task => {
+      try {
+        const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
+        return deadlineDate < now;
+      } catch (e) {
+        console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as not expired for filtering)`);
+        return false; 
+      }
+    });
+  }, [notDoneTasks, now]);
 
-  const pendingTasks = notDoneTasks.filter(task => {
-    const isExpired = expiredTasks.some(et => et.id === task.id);
-    if (isExpired) return false; // If it's expired, it's not pending
+  const pendingTasks = useMemo(() => {
+    return notDoneTasks.filter(task => {
+      const isExpired = expiredTasks.some(et => et.id === task.id);
+      if (isExpired) return false;
 
-    // For remaining not-done, not-expired tasks, check deadline or handle invalid date
-    try {
-      const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
-      return deadlineDate >= now;
-    } catch (e) {
-      console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as pending)`);
-      return true; // If date is invalid, treat as pending as per original logic
-    }
-  });
+      try {
+        const deadlineDate = parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date());
+        return deadlineDate >= now;
+      } catch (e) {
+        console.warn(`Invalid date format for task "${task.text}": ${task.deadline} (classifying as pending)`);
+        return true;
+      }
+    });
+  }, [notDoneTasks, expiredTasks, now]);
 
 
   return (
@@ -125,21 +157,23 @@ export default function HomePage() {
             <div>
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-lg font-semibold text-primary">Your Task List</h3>
-                {tasks.length > 0 && (
+                {(tasks.length > 0 || inputValue) && ( // Show controls if there are tasks OR if user is typing in search
                   <div className="flex items-center space-x-2">
                     <div className="relative flex items-center">
                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                        <Input
                           type="search"
                           placeholder="Search tasks..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="h-9 pl-10 pr-3 text-sm w-40 md:w-56" // Added width
+                          value={inputValue} // Use inputValue for direct input binding
+                          onChange={(e) => setInputValue(e.target.value)} // Update inputValue
+                          className="h-9 pl-10 pr-3 text-sm w-40 md:w-56"
                        />
                     </div>
-                    <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm">
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete All
-                    </Button>
+                    {tasks.length > 0 && (
+                        <Button onClick={handleDeleteAllTasks} variant="destructive" size="sm">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete All
+                        </Button>
+                    )}
                   </div>
                 )}
               </div>
