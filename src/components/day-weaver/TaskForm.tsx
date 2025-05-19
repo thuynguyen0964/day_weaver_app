@@ -113,6 +113,7 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
                         selected={field.value}
                         onSelect={field.onChange}
                         initialFocus
+                        weekStartsOn={1} // Set week to start on Monday
                         disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() -1))}
                       />
                     </PopoverContent>
