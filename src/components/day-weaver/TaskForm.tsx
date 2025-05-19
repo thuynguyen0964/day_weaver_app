@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea'; // Added Textarea
 import {
   Select,
   SelectContent,
@@ -22,7 +23,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, PlusCircle } from 'lucide-react';
+import { CalendarIcon, PlusCircle, FileText } from 'lucide-react'; // Added FileText
 import type { Task, TaskPriority } from '@/types/tasks';
 
 const taskSchema = z.object({
@@ -32,13 +33,13 @@ const taskSchema = z.object({
   }),
   deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."),
   priority: z.enum(['High', 'Medium', 'Low']),
-  durationEstimate: z.string().optional(),
+  note: z.string().optional(), // Changed from durationEstimate to note
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
 
 interface TaskFormProps {
-  onAddTask: (task: Omit<Task, 'id' | 'isCompleted' | 'trackedTimeSeconds'>) => void;
+  onAddTask: (task: Omit<Task, 'id' | 'isCompleted'>) => void;
 }
 
 export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
@@ -54,6 +55,7 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
       priority: 'Medium',
       deadlineDate: new Date(),
       deadlineTime: format(new Date(), "HH:mm"),
+      note: '', // Added note default
     }
   });
 
@@ -63,14 +65,14 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
       text: data.text,
       deadline,
       priority: data.priority as TaskPriority,
-      durationEstimate: data.durationEstimate,
+      note: data.note, // Changed from durationEstimate to note
     });
-    reset({ // Reset form to default or specific values
+    reset({ 
         text: '',
         priority: 'Medium',
         deadlineDate: new Date(),
         deadlineTime: format(new Date(), "HH:mm"),
-        durationEstimate: ''
+        note: '' // Reset note
     });
   };
 
@@ -150,9 +152,9 @@ export const TaskForm: FC<TaskFormProps> = ({ onAddTask }) => {
               {errors.priority && <p className="text-destructive text-xs mt-1">{errors.priority.message}</p>}
             </div>
             <div>
-              <Label htmlFor="durationEstimate" className="block text-sm font-medium mb-1">Est. Duration (e.g., 1h, 30m)</Label>
-              <Input id="durationEstimate" {...register('durationEstimate')} placeholder="Optional"/>
-              {errors.durationEstimate && <p className="text-destructive text-xs mt-1">{errors.durationEstimate.message}</p>}
+              <Label htmlFor="note" className="block text-sm font-medium mb-1">Note (Optional)</Label>
+              <Textarea id="note" {...register('note')} placeholder="Add any relevant notes..."/>
+              {errors.note && <p className="text-destructive text-xs mt-1">{errors.note.message}</p>}
             </div>
           </div>
           

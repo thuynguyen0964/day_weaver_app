@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea'; // Added Textarea
 import {
   Select,
   SelectContent,
@@ -27,7 +28,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Trash2, CalendarClock, AlertTriangle, Clock3, Edit3, Save, Ban, CalendarIcon, PlusCircle } from 'lucide-react';
+import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText } from 'lucide-react'; // Added FileText, removed Clock3
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
 
@@ -37,9 +38,9 @@ const editTaskSchema = z.object({
   deadlineDate: z.date().refine(val => val >= new Date(new Date().setHours(0,0,0,0)), {
     message: "Deadline must be today or in the future."
   }),
-  deadlineTime: z.string().regex(/^([01]\d|2[0-2]):([0-5]\d)$/, "Invalid time format (HH:MM)."),
+  deadlineTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)."), // Corrected regex to allow 20-23 hours
   priority: z.enum(['High', 'Medium', 'Low']),
-  durationEstimate: z.string().optional(),
+  note: z.string().optional(), // Changed from durationEstimate to note
 });
 
 type EditTaskFormData = z.infer<typeof editTaskSchema>;
@@ -64,11 +65,10 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     resolver: zodResolver(editTaskSchema),
     defaultValues: {
       text: task.text,
-      // Parse deadline string "YYYY-MM-DD HH:mm" into Date object for date field and string for time field
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
       deadlineTime: task.deadline ? format(parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()), 'HH:mm') : format(new Date(), "HH:mm"),
       priority: task.priority,
-      durationEstimate: task.durationEstimate || '',
+      note: task.note || '', // Changed from durationEstimate to note
     },
   });
 
@@ -79,19 +79,18 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
   } as const;
 
   const handleEdit = () => {
-    reset({ // Reset form with current task values when starting edit
+    reset({ 
       text: task.text,
       deadlineDate: task.deadline ? parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()) : new Date(),
       deadlineTime: task.deadline ? format(parse(task.deadline, 'yyyy-MM-dd HH:mm', new Date()), 'HH:mm') : format(new Date(), "HH:mm"),
       priority: task.priority,
-      durationEstimate: task.durationEstimate || '',
+      note: task.note || '', // Changed from durationEstimate to note
     });
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    // No need to call reset here as defaultValues are re-evaluated if edit is clicked again
   };
 
   const onSubmit: SubmitHandler<EditTaskFormData> = (data) => {
@@ -100,7 +99,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
       text: data.text,
       deadline,
       priority: data.priority as TaskPriority,
-      durationEstimate: data.durationEstimate,
+      note: data.note, // Changed from durationEstimate to note
     });
     setIsEditing(false);
   };
@@ -111,7 +110,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
         <CardHeader>
           <CardTitle className="flex items-center text-xl">
             <Edit3 className="mr-2 h-6 w-6 text-primary" />
-            Edit Task: {task.text}
+            Edit Task: <span className="truncate ml-2 font-normal text-base">{task.text}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -182,9 +181,9 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
                 {errors.priority && <p className="text-destructive text-xs mt-1">{errors.priority.message}</p>}
               </div>
               <div>
-                <Label htmlFor={`edit-durationEstimate-${task.id}`} className="block text-sm font-medium mb-1">Est. Duration (e.g., 1h, 30m)</Label>
-                <Input id={`edit-durationEstimate-${task.id}`} {...register('durationEstimate')} placeholder="Optional"/>
-                {errors.durationEstimate && <p className="text-destructive text-xs mt-1">{errors.durationEstimate.message}</p>}
+                <Label htmlFor={`edit-note-${task.id}`} className="block text-sm font-medium mb-1">Note (Optional)</Label>
+                <Textarea id={`edit-note-${task.id}`} {...register('note')} placeholder="Add any relevant notes..." />
+                {errors.note && <p className="text-destructive text-xs mt-1">{errors.note.message}</p>}
               </div>
             </div>
             <CardFooter className="pt-4 pb-0 px-0 flex justify-end space-x-2">
@@ -216,7 +215,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
             <CardTitle id={`task-title-${task.id}`} className={cn("text-lg truncate", task.isCompleted && "line-through")}>{task.text}</CardTitle>
           </div>
           <div className="flex-shrink-0 space-x-1">
-            <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit task">
+            <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit task" disabled={task.isCompleted}>
               <Edit3 className="h-5 w-5 text-blue-600" />
             </Button>
             <Button variant="ghost" size="icon" onClick={() => onDeleteTask(task.id)} aria-label="Delete task">
@@ -231,10 +230,10 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
             <CalendarClock className="h-4 w-4 mr-2" />
             <span>Deadline: {task.deadline}</span>
           </div>
-          {task.durationEstimate && (
-            <div className="flex items-center">
-              <Clock3 className="h-4 w-4 mr-2" />
-              <span>Est. Duration: {task.durationEstimate}</span>
+          {task.note && ( // Display note if it exists
+            <div className="flex items-start pt-1">
+              <FileText className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+              <span className="whitespace-pre-wrap break-words">Note: {task.note}</span>
             </div>
           )}
         </div>
@@ -248,5 +247,3 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     </Card>
   );
 };
-
-    

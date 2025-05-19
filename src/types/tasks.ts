@@ -5,7 +5,6 @@ export interface Task {
   text: string; // Renamed from 'task' to 'text' to avoid conflict with 'task' function name
   deadline: string; // YYYY-MM-DD HH:mm
   priority: TaskPriority;
-  durationEstimate?: string; // e.g., 1h, 30m
+  note?: string; // Replaced durationEstimate with note
   isCompleted: boolean;
-  // trackedTimeSeconds removed as it was part of the schedule feature
 }
