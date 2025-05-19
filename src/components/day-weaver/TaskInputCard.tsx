@@ -34,13 +34,12 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
-  DialogFooter, // Added DialogFooter
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Trash2, CalendarClock, AlertTriangle, Edit3, Save, Ban, CalendarIcon, FileText, Bell, Send } from 'lucide-react';
 import type { Task, TaskPriority } from '@/types/tasks';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { sendTaskReminderEmail, type SendTaskReminderEmailInput } from '@/ai/flows/send-task-reminder-flow';
 
 // Schema for editing a task, similar to TaskForm
 const editTaskSchema = z.object({
@@ -124,27 +123,11 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
     try {
       emailSchema.parse(reminderEmail);
       setEmailError(null);
-
-      const flowInput: SendTaskReminderEmailInput = {
-        taskText: task.text,
-        taskDeadline: task.deadline,
-        recipientEmail: reminderEmail,
-      };
       
-      const result = await sendTaskReminderEmail(flowInput);
-
-      if (result.status === 'queued') {
-        toast({
-          title: "Reminder Set",
-          description: result.message,
-        });
-      } else {
-        toast({
-          title: "Reminder Failed",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Reminder Set",
+        description: `Reminder for "${task.text}" will be sent to ${reminderEmail}. (Simulated)`,
+      });
 
       setReminderEmail('');
       setIsReminderDialogOpen(false);
@@ -152,7 +135,7 @@ export const TaskInputCard: FC<TaskInputCardProps> = ({ task, onDeleteTask, onTo
       if (error instanceof z.ZodError) {
         setEmailError(error.errors[0].message);
       } else {
-        console.error("Error sending reminder:", error);
+        console.error("Error processing reminder:", error);
         toast({
           title: "Error",
           description: "Could not process the reminder request.",
